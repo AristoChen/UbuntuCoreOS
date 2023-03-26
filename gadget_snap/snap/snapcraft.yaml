@@ -1,0 +1,115 @@
+name: gadget-snap
+base: core22
+version: '0.1'
+summary: Test gadget snap
+description: |
+  This is a test gadget snap
+
+type: gadget
+architectures:
+  - build-on: amd64
+    build-for: __ARCH__
+
+grade: stable # must be 'stable' to release into candidate/stable channels
+confinement: devmode # use 'strict' once you have the right plugs and slots
+
+parts:
+  atf:
+    plugin: nil
+    source: __ATF_GIT_SOURCE__
+    source-type: git
+    source-depth: 0
+    source-branch: __ATF_GIT_BRANCH__
+    build-environment:
+      - on amd64:
+        - CROSS_COMPILE: __CROSS_COMPILER__
+    override-build: |
+      make PLAT=__ATF_PLATFORM__ DEBUG=__ATF_DEBUG_LEVEL__ bl31
+      cp build/__ATF_PLATFORM__/debug/bl31.bin ${CRAFT_PART_INSTALL}/
+    prime:
+      - -bl31.bin
+
+  scp:
+    plugin: nil
+    source: __SCP_GIT_SOURCE__
+    source-type: git
+    source-depth: 0
+    source-branch: __SCP_GIT_BRANCH__
+    build-environment:
+      - on amd64:
+        - CROSS_COMPILE: __SCP_CROSS_COMPILER__
+    override-build: |
+      make orangepi_pc2_defconfig
+      make -j$(nproc)
+      cp build/scp/scp.bin ${CRAFT_PART_INSTALL}/
+    prime:
+      - -scp.bin
+
+  u-boot:
+    after:
+      - atf
+      - scp
+    plugin: nil
+    source: __BOOTLOADER_GIT_SOURCE__
+    source-type: git
+    source-depth: 1
+    source-branch: __BOOTLOADER_GIT_BRANCH__
+    build-environment:
+      - on amd64:
+        - CROSS_COMPILE: __CROSS_COMPILER__
+    override-build: |
+      touch ${CRAFT_PART_SRC}/.scmversion
+      printf "CONFIG_FIT=y\nCONFIG_SYS_REDUNDAND_ENVIRONMENT=y\n" >> configs/__BOOTLOADER_DEFCONFIG__
+      make __BOOTLOADER_DEFCONFIG__
+
+      if [ '__ATF_IS_REQUIRED__' == 'true' ]; then
+        if [ -f ${CRAFT_STAGE}/bl31.bin ]; then
+          cp ${CRAFT_STAGE}/bl31.bin ./
+        else
+          echo "Error: bl31.bin not found"
+          exit 1
+        fi
+      fi
+
+      if [ '__SCP_IS_REQUIRED__' == 'true' ]; then
+        if [ -f ${CRAFT_STAGE}/scp.bin ]; then
+          cp ${CRAFT_STAGE}/scp.bin ./
+        else
+          echo "Error: scp.bin not found"
+          exit 1
+        fi
+      fi
+
+      make -j$(nproc) LOCALVERSION="-uc22"
+
+      # Copy licenses
+      mkdir -p ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
+      cp -a Licenses/* ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
+
+      cp __BOOTLOADER_BINARY__ ${CRAFT_PART_INSTALL}
+      tools/mkenvimage -r -s 4096 -o ${CRAFT_PART_INSTALL}/boot.sel - < /dev/null
+      touch ${CRAFT_PART_INSTALL}/uboot.conf
+
+  boot-script:
+    plugin: dump
+    source: boot-script
+    override-build: |
+      mkimage -C none -A arm -T script -d boot.cmd ${CRAFT_PART_INSTALL}/boot.scr
+
+  cloud-init-conf:
+    plugin: dump
+    source: cloud-init
+
+build-packages:
+  - bc
+  - bison
+  - build-essential
+  - device-tree-compiler
+  - flex
+  - libssl-dev
+  - python3-pycryptodome
+  - python3-pyelftools
+  - u-boot-tools
+  - on amd64:
+    - __CROSS_COMPILER_DEB_PACKAGE__
+    - __SCP_CROSS_COMPILER_DEB_PACKAGE__

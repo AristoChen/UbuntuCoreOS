@@ -1,0 +1,128 @@
+name: kernel-snap
+build-base: core22
+summary: Test kernel snap
+description: |
+  This is a test kernel snap
+
+type: kernel
+adopt-info: kernel
+architectures:
+  - build-on: amd64
+    build-for: __ARCH__
+
+grade: stable # must be 'stable' to release into candidate/stable channels
+confinement: devmode # use 'strict' once you have the right plugs and slots
+
+package-repositories:
+ - type: apt
+   ppa: snappy-dev/image
+
+parts:
+  firmware:
+    plugin: nil
+    stage-packages:
+      - linux-firmware
+    organize:
+      lib/firmware: firmware
+    stage:
+      - -firmware/amd
+      - -firmware/amdgpu
+      - -firmware/asihpi
+      - -firmware/cavium
+      - -firmware/cxgb3
+      - -firmware/cxgb4
+      - -firmware/dpaa2
+      - -firmware/i915
+      - -firmware/intel
+      - -firmware/iwlwifi-*
+      - -firmware/liquidio
+      - -firmware/matrox
+      - -firmware/mellanox
+      - -firmware/mrvl
+      - -firmware/moxa
+      - -firmware/netronome
+      - -firmware/nvidia
+      - -firmware/qed
+      - -firmware/radeon
+      - -firmware/rockchip
+      - -firmware/ath3k-1.fw
+      - -firmware/qca/htbtfw20.tlv
+      - -firmware/qcom
+      - -firmware/s5p*
+      - -lib
+
+  config:
+    plugin: nil
+    source: ${CRAFT_PROJECT_DIR}/configs
+    override-build: |
+      cp __KERNEL_DEFCONFIG__ ${CRAFT_PART_INSTALL}
+    prime:
+      - -*
+
+  kernel:
+    after:
+      - firmware
+      - config
+    plugin: kernel
+    source: __KERNEL_GIT_SOURCE__
+    source-type: git
+    source-depth: 1
+    source-branch: __KERNEL_GIT_BRANCH__
+    kernel-kdefconfig:
+      - __KERNEL_DEFCONFIG__
+    kernel-with-firmware: false
+    kernel-initrd-compression: zstd
+    kernel-initrd-stage-firmware: true
+    kernel-kconfigs:
+      - CONFIG_DEBUG_INFO=n
+      - CONFIG_SYSTEM_TRUSTED_KEYS=""
+      - CONFIG_SYSTEM_REVOCATION_KEYS=""
+      - CONFIG_LOCALVERSION="-uc22"
+    kernel-initrd-modules:
+      - nls_iso8859-1
+    override-build: |
+      touch ${CRAFT_PART_SRC}/.scmversion
+      if [ ${CRAFT_TARGET_ARCH} == "armhf" ]; then
+        cp ${CRAFT_STAGE}/__KERNEL_DEFCONFIG__ ${CRAFT_PART_SRC}/arch/arm/configs/__KERNEL_DEFCONFIG__
+      elif [ ${CRAFT_TARGET_ARCH} == "arm64" ]; then
+        cp ${CRAFT_STAGE}/__KERNEL_DEFCONFIG__ ${CRAFT_PART_SRC}/arch/arm64/configs/__KERNEL_DEFCONFIG__
+      fi
+      craftctl default
+      craftctl set version=$(cat include/generated/utsrelease.h | cut -d \" -f 2)
+      mv ${CRAFT_PART_INSTALL}/kernel.img ${CRAFT_PART_INSTALL}/Image
+    stage:
+      - dtbs
+      - System.map-*
+      - config-*
+      - initrd.img
+      - Image
+      - modules
+    prime:
+      - -dtbs
+      - -initrd.img
+      - -Image
+
+  fit-image:
+    after:
+      - kernel
+    plugin: nil
+    override-build: |
+      cp ${CRAFT_PROJECT_DIR}/its/kernel.its ./
+      cp ${CRAFT_STAGE}/Image ./
+      cp ${CRAFT_STAGE}/initrd.img ./
+      cp -r ${CRAFT_STAGE}/dtbs ./
+
+      mkimage -f kernel.its ${CRAFT_PART_INSTALL}/kernel.img
+
+build-packages:
+  - bc
+  - bison
+  - build-essential
+  - device-tree-compiler
+  - flex
+  - libssl-dev
+  - python3-pycryptodome
+  - python3-pyelftools
+  - u-boot-tools
+  - on amd64:
+    - __CROSS_COMPILER_DEB_PACKAGE__

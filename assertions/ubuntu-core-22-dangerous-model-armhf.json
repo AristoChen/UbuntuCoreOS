@@ -1,0 +1,37 @@
+{
+  "type": "model",
+  "authority-id": "V2yG6LAupEYdeTz6jHQLLOMkHGd1ZG44",
+  "brand-id": "V2yG6LAupEYdeTz6jHQLLOMkHGd1ZG44",
+  "series": "16",
+  "model": "ubuntu-core-22",
+  "architecture": "armhf",
+  "base": "core22",
+  "grade": "dangerous",
+  "snaps": [
+    {
+      "default-channel": "latest/stable",
+      "id": "ThisIsADummyStringForGadgetSnaps",
+      "name": "gadget-snap",
+      "type": "gadget"
+    },
+    {
+      "default-channel": "latest/stable",
+      "id": "ThisIsADummyStringForKernelSnaps",
+      "name": "kernel-snap",
+      "type": "kernel"
+    },
+    {
+      "default-channel": "latest/stable",
+      "id": "amcUKQILKXHHTlmSa7NMdnXSx02dNeeT",
+      "name": "core22",
+      "type": "base"
+    },
+    {
+      "default-channel": "latest/stable",
+      "id": "PMrrV4ml8uWuEUDBT8dSGnKUYbevVhc4",
+      "name": "snapd",
+      "type": "snapd"
+    }
+  ],
+  "timestamp": "2023-03-05T02:00:46Z"
+}

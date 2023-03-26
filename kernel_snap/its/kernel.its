@@ -1,0 +1,61 @@
+/dts-v1/;
+
+/ {
+	description = "Ubuntu Core kernel, ramdisk and FDT blobs";
+	#address-cells = <1>;
+
+	images {
+		kernel-ubuntu {
+			description = "ubuntu-kernel";
+			data = /incbin/("./Image");
+			type = "kernel";
+			arch = "__ARCH__";
+			os = "linux";
+			compression = "__ITS_KERNEL_COMPRESSION__";
+			load =  <__KERNEL_LOAD_ADDR__>;
+			entry = <__KERNEL_LOAD_ADDR__>;
+			hash-1 {
+				algo = "sha256";
+			};
+		};
+
+		ramdisk-uc {
+			description = "Ubuntu-Core-ramdisk";
+			data = /incbin/("./initrd.img");
+			type = "ramdisk";
+			arch = "__ARCH__";
+			os = "linux";
+			compression = "none";
+			load =  <__RAMDISK_LOAD_ADDR__>;
+			entry = <__RAMDISK_LOAD_ADDR__>;
+			hash-1 {
+				algo = "sha256";
+			};
+		};
+
+		__DEVICE__ {
+			description = "__DEVICE__ device tree";
+			data = /incbin/("./__ITS_FDT_PATH__");
+			type = "flat_dt";
+			arch = "__ARCH__";
+			compression = "none";
+			load =  <__FDT_LOAD_ADDR__>;
+			entry = <__FDT_LOAD_ADDR__>;
+			hash-1 {
+				algo = "sha256";
+			};
+		};
+	};
+
+	configurations {
+		default = "__ITS_FDT_NAME__";
+
+		__ITS_FDT_NAME__ {
+			description = "__DEVICE__";
+			kernel = "kernel-ubuntu";
+			ramdisk = "ramdisk-uc";
+			fdt = "__DEVICE__";
+		};
+
+	};
+};

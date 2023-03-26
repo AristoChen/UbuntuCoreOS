@@ -1,0 +1,45 @@
+volumes:
+  ubuntu-core:
+    schema: mbr
+    bootloader: u-boot
+    structure:
+      - name: u-boot
+        offset: __BOOTLOADER_OFFSET__
+        size: __BOOTLOADER_MAX_SIZE__
+        type: bare
+        content:
+          - image: __BOOTLOADER_BINARY__
+      - name: ubuntu-seed
+        role: system-seed
+        filesystem: vfat
+        type: 0C
+        size: 1200M
+        content:
+          - source: boot.scr
+            target: /
+          - source: cloud.conf
+            target: /
+      - name: ubuntu-boot
+        role: system-boot
+        filesystem: vfat
+        type: 0C
+        size: 750M
+        content:
+          - source: boot.sel
+            target: uboot/ubuntu/boot.sel
+      - name: ubuntu-save
+        role: system-save
+        filesystem: ext4
+        type: 83,0FC63DAF-8483-4772-8E79-3D69D8477DE4
+        size: 32M
+      - name: ubuntu-data
+        role: system-data
+        filesystem: ext4
+        type: 83,0FC63DAF-8483-4772-8E79-3D69D8477DE4
+        size: 1500M
+
+defaults:
+  system:
+    service:
+      console-conf:
+        disable: true
