@@ -6,7 +6,7 @@
 
 	images {
 		kernel-ubuntu {
-			description = "ubuntu-kernel";
+			description = "Ubuntu-Core-Kernel";
 			data = /incbin/("./Image");
 			type = "kernel";
 			arch = "__ARCH__";
@@ -20,7 +20,7 @@
 		};
 
 		ramdisk-uc {
-			description = "Ubuntu-Core-ramdisk";
+			description = "Ubuntu-Core-Ramdisk";
 			data = /incbin/("./initrd.img");
 			type = "ramdisk";
 			arch = "__ARCH__";

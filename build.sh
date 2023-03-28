@@ -48,6 +48,13 @@ function load_config()
 
 	cd ${BOARD_BUILD_DIR}
 
+	if [ "${FIP_IS_REQUIRED}" != "true" ]; then
+		# Delete the FIP related code in snapcraft.yaml
+		yq -i 'del(.parts.fip)' ${GADGET_SNAP_SNAPCRAFT_YAML}
+		yq -i 'del(.parts.u-boot.prime)' ${GADGET_SNAP_SNAPCRAFT_YAML}
+		yq -i 'del(.volumes.ubuntu-core.structure[] | select(.name == "mbr"))' ${GADGET_SNAP_GADGET_YAML}
+	fi
+
 	if [ "${BOOTLOADER_WAIT_FOR_DEPEND}" != "true" ]; then
 		# Delete the wait for depend related code in snapcraft.yaml
 		yq -i 'del(.parts.u-boot.after)' ${GADGET_SNAP_SNAPCRAFT_YAML}
@@ -68,7 +75,7 @@ function load_config()
 	fi
 
 	if [ "${CLOUD_INIT_ENABLED}" != "true" ]; then
-		# Delete the wait for depend related code in snapcraft.yaml
+		# Delete the cloud-init related code in snapcraft.yaml
 		yq -i 'del(.parts.cloud-init-conf)' ${GADGET_SNAP_SNAPCRAFT_YAML}
 		yq -i 'del(.defaults)' ${GADGET_SNAP_GADGET_YAML}
 		yq -i 'del(.volumes.ubuntu-core.structure[] | select(.name == "ubuntu-seed") | .[][] | select(.source == "cloud.conf"))' ${GADGET_SNAP_GADGET_YAML}
@@ -102,6 +109,13 @@ function load_config()
 		-exec sed -i "s${d}__BOOTLOADER_MAX_SIZE__${d}${BOOTLOADER_MAX_SIZE}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_BOOTARGS__${d}${BOOTLOADER_BOOTARGS}${d}g" {} \; \
 		\
+		-exec sed -i "s${d}__FIP_IS_REQUIRED__${d}${FIP_IS_REQUIRED}${d}g" {} \; \
+		-exec sed -i "s${d}__FIP_GIT_SOURCE__${d}${FIP_GIT_SOURCE}${d}g" {} \; \
+		-exec sed -i "s${d}__FIP_GIT_BRANCH__${d}${FIP_GIT_BRANCH}${d}g" {} \; \
+		-exec sed -i "s${d}__FIP_PLATFORM__${d}${FIP_PLATFORM}${d}g" {} \; \
+		-exec sed -i "s${d}__FIP_OUTPUT_BINARY__${d}${FIP_OUTPUT_BINARY}${d}g" {} \; \
+		\
+		-exec sed -i "s${d}__MMC_DEV_NUM__${d}${MMC_DEV_NUM}${d}g" {} \; \
 		-exec sed -i "s${d}__KERNEL_LOAD_ADDR__${d}${KERNEL_LOAD_ADDR}${d}g" {} \; \
 		-exec sed -i "s${d}__RAMDISK_LOAD_ADDR__${d}${RAMDISK_LOAD_ADDR}${d}g" {} \; \
 		-exec sed -i "s${d}__FDT_LOAD_ADDR__${d}${FDT_LOAD_ADDR}${d}g" {} \; \
@@ -163,3 +177,5 @@ load_config
 build_gadget_snap
 build_kernel_snap
 build-ubuntu-core-image
+
+echo "Build successfully, output file is under ${OUTPUT_DIR}"

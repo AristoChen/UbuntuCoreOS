@@ -23,10 +23,12 @@ Step 2: Choose a board in the list
 
 Step 3: flash it to SD card
 ```
-$ sudo xzcat OrangePi_PC_Ubuntu_Core_22_armhf.img.xz | sudo dd bs=4M of=/dev/sdX status=progress conv=fsync;sync
+$ sudo xzcat <IMAGE_NAME> | sudo dd bs=4M of=/dev/<SD_CARD_PATH> status=progress conv=fsync;sync
 ```
+Step 4: power on the device, the device will automatically reboot 1 time to finish the installation, then you can login with `ubuntu/ubuntu`.
 
 ---
 
 ## Future plan
 - Support more embedded systems, feel free to let me know if you want me to support any embedded systems, or I can help you to support it.
+- Refactor might be required. Currently some codes are platform specific, other platforms might do things differently, will need to handle them in a better way.

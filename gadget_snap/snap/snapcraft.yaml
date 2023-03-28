@@ -58,8 +58,11 @@ parts:
       - on amd64:
         - CROSS_COMPILE: __CROSS_COMPILER__
     override-build: |
-      touch ${CRAFT_PART_SRC}/.scmversion
-      printf "CONFIG_FIT=y\nCONFIG_SYS_REDUNDAND_ENVIRONMENT=y\n" >> configs/__BOOTLOADER_DEFCONFIG__
+      cat << EOF >> configs/__BOOTLOADER_DEFCONFIG__
+      CONFIG_FIT=y
+      CONFIG_SYS_REDUNDAND_ENVIRONMENT=y
+      CONFIG_LOCALVERSION_AUTO=n
+      EOF
       make __BOOTLOADER_DEFCONFIG__
 
       if [ '__ATF_IS_REQUIRED__' == 'true' ]; then
@@ -86,9 +89,32 @@ parts:
       mkdir -p ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
       cp -a Licenses/* ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
 
-      cp __BOOTLOADER_BINARY__ ${CRAFT_PART_INSTALL}
+      if [ '__FIP_IS_REQUIRED__' == 'true' ]; then
+        cp __BOOTLOADER_BINARY__ ${CRAFT_PART_INSTALL}/
+      else
+        cp __BOOTLOADER_BINARY__ ${CRAFT_PART_INSTALL}/bootloader.bin
+      fi
       tools/mkenvimage -r -s 4096 -o ${CRAFT_PART_INSTALL}/boot.sel - < /dev/null
       touch ${CRAFT_PART_INSTALL}/uboot.conf
+    prime:
+      - -__BOOTLOADER_BINARY__
+
+  # TODO: Currently this is only for khadas_vim1, other platforms
+  # might handle FIP differently, will need a better mechanism to
+  # handle FIP.
+  fip:
+    after:
+      - u-boot
+    plugin: nil
+    source: __FIP_GIT_SOURCE__
+    source-type: git
+    source-depth: 1
+    source-branch: __FIP_GIT_BRANCH__
+    override-build: |
+      mkdir output
+      ./build-fip.sh __FIP_PLATFORM__ ${CRAFT_STAGE}/__BOOTLOADER_BINARY__ output/
+      dd if=output/u-boot.bin.sd.bin of=${CRAFT_PART_INSTALL}/bootloader.bin bs=512 skip=1 conv=fsync
+      dd if=output/__FIP_OUTPUT_BINARY__ of=${CRAFT_PART_INSTALL}/mbr.bin bs=1 count=440 conv=fsync
 
   boot-script:
     plugin: dump
