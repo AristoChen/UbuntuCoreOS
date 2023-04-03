@@ -140,7 +140,7 @@ function build_gadget_snap()
 function build_kernel_snap()
 {
 	cd ${BOARD_BUILD_DIR}/${KERNEL_SNAP_DIR}
-	sudo snapcraft --build-for=${ARCH} --destructive-mode
+	sudo snapcraft --build-for=${ARCH} --destructive-mode --enable-experimental-plugins
 	cd ${ROOR_DIR}
 }
 
