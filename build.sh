@@ -82,7 +82,9 @@ function load_config()
 	fi
 
 	local d=$'\x03'
-	find . \( -path '*/parts' -prune -o -path '*/stage' -prune -o -path '*/prime' -prune \) -o -print -type f \
+	find . \( -path '*/parts' -prune -o -path '*/stage' -prune -o -path '*/prime' -prune \
+		-o -path './work' -prune -o -path './out' -prune -o -path './*.snap' -prune \) \
+		-o -print -type f \
 		-exec sed -i "s${d}__DEVICE__${d}${DEVICE}${d}g" {} \; \
 		-exec sed -i "s${d}__ARCH__${d}${ARCH}${d}g" {} \; \
 		-exec sed -i "s${d}__CROSS_COMPILER__${d}${CROSS_COMPILER}${d}g" {} \; \
