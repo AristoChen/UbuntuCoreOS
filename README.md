@@ -18,6 +18,10 @@ Please see official [Ubuntu Core documentation](https://ubuntu.com/core/docs) fo
 Step 1: Simply execute
 ```sh
 $ ./build.sh
+
+# If you want to add snaps built-in to the image, please add arguments with the format
+# --snap=<SNAP_NAME>=<SNAP_TRACK>/<SNAP_CHANNEL>
+$ ./build.sh --snap=network-manager=latest/stable --snap=modem-manager=latest/candidate
 ```
 Step 2: Choose a board in the list
 

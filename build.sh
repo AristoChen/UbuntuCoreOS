@@ -153,7 +153,7 @@ function build-ubuntu-core-image()
 	gadget_snap=$(find ${GADGET_SNAP_DIR} -name "*.snap")
 	kernel_snap=$(find ${KERNEL_SNAP_DIR} -name "*.snap")
 	/snap/bin/ubuntu-image snap -d -O out -w work assertions/${ASSERTION_FILE} \
-		--snap=${gadget_snap} --snap=${kernel_snap}
+		--snap=${gadget_snap} --snap=${kernel_snap} ${ARG_EXTRA_SNAPS}
 	cd out/
 
 	local output_image_name="${DEVICE}_Ubuntu_Core_22_${ARCH}.img"
@@ -163,6 +163,20 @@ function build-ubuntu-core-image()
 	[ -d ${OUTPUT_DIR} ] || mkdir -p ${OUTPUT_DIR}
 	mv ${output_image_name}.xz ${OUTPUT_DIR}
 }
+
+# Parsing arguments
+while [ -n "$1" ]; do
+	case "$1" in
+		--snap=*)
+			ARG_EXTRA_SNAPS="${ARG_EXTRA_SNAPS}--snap=${1#*=} "
+		;;
+		* )
+			echo "ERROR: unknown option $1"
+		;;
+	esac
+	shift
+done
+
 
 ROOT_DIR=$(pwd)
 OUTPUT_DIR=$(pwd)/out
