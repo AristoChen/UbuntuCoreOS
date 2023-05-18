@@ -1,6 +1,6 @@
 volumes:
   ubuntu-core:
-    schema: mbr
+    schema: __PARTITION_SCHEMA__
     bootloader: u-boot
     structure:
       - name: mbr
@@ -17,7 +17,7 @@ volumes:
       - name: ubuntu-seed
         role: system-seed
         filesystem: vfat
-        type: 0C
+        type: 0C,0FC63DAF-8483-4772-8E79-3D69D8477DE4
         size: 1200M
         content:
           - source: boot.scr
@@ -27,7 +27,7 @@ volumes:
       - name: ubuntu-boot
         role: system-boot
         filesystem: vfat
-        type: 0C
+        type: 0C,BC13C2FF-59E6-4262-A352-B275FD6F7172
         size: 750M
         content:
           - source: boot.sel

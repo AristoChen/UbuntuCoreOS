@@ -4,11 +4,12 @@ set -ex
 
 function prepare_build_env()
 {
-	snap list snapcraft || sudo snap install snapcraft --channel=latest/edge/kernel-plugin --classic
-	snap list ubuntu-image || sudo snap install ubuntu-image --classic
-	snap list yq || sudo snap install yq --devmode
-	sudo snap refresh snapcraft --channel=latest/edge/kernel-plugin --classic
-	sudo snap refresh yq --channel=latest/stable --devmode
+	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/edge --classic \
+		|| sudo snap install snapcraft --channel=latest/edge --classic
+	snap list ubuntu-image && sudo snap refresh ubuntu-image --channel=2/stable --classic \
+		|| sudo snap install ubuntu-image --channel=2/stable --classic
+	snap list yq && sudo snap refresh yq --channel=latest/stable --devmode \
+		|| sudo snap install yq --channel=latest/stable --devmode
 
 	sudo apt install -y dialog
 }
@@ -103,6 +104,7 @@ function load_config()
 		-exec sed -i "s${d}__SCP_CROSS_COMPILER__${d}${SCP_CROSS_COMPILER}${d}g" {} \; \
 		-exec sed -i "s${d}__SCP_CROSS_COMPILER_DEB_PACKAGE__${d}${SCP_CROSS_COMPILER_DEB_PACKAGE}${d}g" {} \; \
 		\
+		-exec sed -i "s${d}__PARTITION_SCHEMA__${d}${PARTITION_SCHEMA}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_GIT_SOURCE__${d}${BOOTLOADER_GIT_SOURCE}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_GIT_BRANCH__${d}${BOOTLOADER_GIT_BRANCH}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_DEFCONFIG__${d}${BOOTLOADER_DEFCONFIG}${d}g" {} \; \
@@ -146,7 +148,7 @@ function build_kernel_snap()
 	cd ${ROOR_DIR}
 }
 
-function build-ubuntu-core-image()
+function build_ubuntu_core_image()
 {
 	cd ${BOARD_BUILD_DIR}
 	sudo rm -rf work
@@ -192,6 +194,6 @@ create_build_dir
 load_config
 build_gadget_snap
 build_kernel_snap
-build-ubuntu-core-image
+build_ubuntu_core_image
 
 echo "Build successfully, output file is under ${OUTPUT_DIR}"
