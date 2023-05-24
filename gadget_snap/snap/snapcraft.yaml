@@ -14,41 +14,7 @@ grade: stable # must be 'stable' to release into candidate/stable channels
 confinement: devmode # use 'strict' once you have the right plugs and slots
 
 parts:
-  atf:
-    plugin: nil
-    source: __ATF_GIT_SOURCE__
-    source-type: git
-    source-depth: 0
-    source-branch: __ATF_GIT_BRANCH__
-    build-environment:
-      - on amd64:
-        - CROSS_COMPILE: __CROSS_COMPILER__
-    override-build: |
-      make PLAT=__ATF_PLATFORM__ DEBUG=__ATF_DEBUG_LEVEL__ bl31
-      cp build/__ATF_PLATFORM__/debug/bl31.bin ${CRAFT_PART_INSTALL}/
-    prime:
-      - -bl31.bin
-
-  scp:
-    plugin: nil
-    source: __SCP_GIT_SOURCE__
-    source-type: git
-    source-depth: 0
-    source-branch: __SCP_GIT_BRANCH__
-    build-environment:
-      - on amd64:
-        - CROSS_COMPILE: __SCP_CROSS_COMPILER__
-    override-build: |
-      make orangepi_pc2_defconfig
-      make -j$(nproc)
-      cp build/scp/scp.bin ${CRAFT_PART_INSTALL}/
-    prime:
-      - -scp.bin
-
   u-boot:
-    after:
-      - atf
-      - scp
     plugin: nil
     source: __BOOTLOADER_GIT_SOURCE__
     source-type: git
@@ -60,7 +26,6 @@ parts:
     override-build: |
       cat << EOF >> configs/__BOOTLOADER_DEFCONFIG__
       CONFIG_FIT=y
-      CONFIG_SYS_REDUNDAND_ENVIRONMENT=y
       CONFIG_LOCALVERSION_AUTO=n
       EOF
       make __BOOTLOADER_DEFCONFIG__
@@ -89,32 +54,16 @@ parts:
       mkdir -p ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
       cp -a Licenses/* ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
 
-      if [ '__FIP_IS_REQUIRED__' == 'true' ]; then
+      if [ '__BOOTLOADER_BINARY_RENAME__' == 'false' ]; then
         cp __BOOTLOADER_BINARY__ ${CRAFT_PART_INSTALL}/
       else
         cp __BOOTLOADER_BINARY__ ${CRAFT_PART_INSTALL}/bootloader.bin
       fi
-      tools/mkenvimage -r -s 4096 -o ${CRAFT_PART_INSTALL}/boot.sel - < /dev/null
+
+      mkenvimage -s 4096 -o ${CRAFT_PART_INSTALL}/boot.sel - < /dev/null
       touch ${CRAFT_PART_INSTALL}/uboot.conf
     prime:
       - -__BOOTLOADER_BINARY__
-
-  # TODO: Currently this is only for khadas_vim1, other platforms
-  # might handle FIP differently, will need a better mechanism to
-  # handle FIP.
-  fip:
-    after:
-      - u-boot
-    plugin: nil
-    source: __FIP_GIT_SOURCE__
-    source-type: git
-    source-depth: 1
-    source-branch: __FIP_GIT_BRANCH__
-    override-build: |
-      mkdir output
-      ./build-fip.sh __FIP_PLATFORM__ ${CRAFT_STAGE}/__BOOTLOADER_BINARY__ output/
-      dd if=output/u-boot.bin.sd.bin of=${CRAFT_PART_INSTALL}/bootloader.bin bs=512 skip=1 conv=fsync
-      dd if=output/__FIP_OUTPUT_BINARY__ of=${CRAFT_PART_INSTALL}/mbr.bin bs=1 count=440 conv=fsync
 
   boot-script:
     plugin: dump

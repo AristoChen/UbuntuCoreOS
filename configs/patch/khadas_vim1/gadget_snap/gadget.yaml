@@ -1,0 +1,14 @@
+volumes:
+  ubuntu-core:
+    structure:
+      - name: mbr
+        type: mbr
+        size: 440
+        content:
+          - image: mbr.bin
+      - name: bootloader
+        offset: 512
+        size: 16M
+        type: bare
+        content:
+          - image: bootloader.bin

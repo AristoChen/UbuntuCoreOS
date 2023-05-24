@@ -3,17 +3,6 @@ volumes:
     schema: __PARTITION_SCHEMA__
     bootloader: u-boot
     structure:
-      - name: mbr
-        type: mbr
-        size: 440
-        content:
-          - image: mbr.bin
-      - name: bootloader
-        offset: __BOOTLOADER_OFFSET__
-        size: __BOOTLOADER_MAX_SIZE__
-        type: bare
-        content:
-          - image: bootloader.bin
       - name: ubuntu-seed
         role: system-seed
         filesystem: vfat

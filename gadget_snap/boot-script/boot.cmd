@@ -11,7 +11,7 @@ setenv fitloadaddr __FIT_LOAD_ADDR__
 setenv core_state "/uboot/ubuntu/boot.sel"
 setenv kernel_bootpart ${mmc_seed_part}
 
-load ${devtype} ${mmc_dev_num}:${distro_bootpart} ${kernel_addr_r} ${core_state}
+load ${devtype} ${mmc_dev_num}:${kernel_bootpart} ${kernel_addr_r} ${core_state}
 setenv kernel_filename kernel.img
 setenv kernel_vars "snap_kernel snap_try_kernel kernel_status"
 setenv recovery_vars "snapd_recovery_mode snapd_recovery_system snapd_recovery_kernel"

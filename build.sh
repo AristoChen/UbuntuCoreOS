@@ -6,8 +6,8 @@ function prepare_build_env()
 {
 	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/edge --classic \
 		|| sudo snap install snapcraft --channel=latest/edge --classic
-	snap list ubuntu-image && sudo snap refresh ubuntu-image --channel=2/stable --classic \
-		|| sudo snap install ubuntu-image --channel=2/stable --classic
+	snap list ubuntu-image && sudo snap refresh ubuntu-image --channel=latest/stable --classic \
+		|| sudo snap install ubuntu-image --channel=latest/stable --classic
 	snap list yq && sudo snap refresh yq --channel=latest/stable --devmode \
 		|| sudo snap install yq --channel=latest/stable --devmode
 
@@ -42,38 +42,36 @@ function load_config()
 {
 	# Load and replace configs
 	CONFIG=${BOARD}.conf
-	source ${CONFIG_DIR}/${CONFIG}
-
 	GADGET_SNAP_SNAPCRAFT_YAML=${GADGET_SNAP_DIR}/snap/snapcraft.yaml
 	GADGET_SNAP_GADGET_YAML=${GADGET_SNAP_DIR}/gadget.yaml
+	source ${CONFIG_DIR}/${CONFIG}
+
+	# Apply patches
+	PATCH_DIR=${ROOT_DIR}/configs/patch/${BOARD}
+	CACHE_DIR=${ROOT_DIR}/cache/${BOARD}
+	if [ ! -f ${CACHE_DIR}/.done_apply_patch ]; then
+		if [ -f ${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} ]; then
+			yq ". *+ load(\"${ROOT_DIR}/${GADGET_SNAP_GADGET_YAML}\")" ${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} \
+				> ${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}
+		fi
+		if [ -f ${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML} ]; then
+			yq ". *+ load(\"${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}\")" ${ROOT_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML} \
+				> ${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}
+		fi
+		find ${PATCH_DIR} -name "*.patch" -exec cp {} ${CACHE_DIR}/${GADGET_SNAP_DIR} \;
+		touch ${CACHE_DIR}/.done_apply_patch
+		echo "Done applying patches for YAML files"
+	else
+		echo "Skip applying patches for YAML files"
+	fi
 
 	cd ${BOARD_BUILD_DIR}
 
-	if [ "${FIP_IS_REQUIRED}" != "true" ]; then
-		# Delete the FIP related code in snapcraft.yaml
-		yq -i 'del(.parts.fip)' ${GADGET_SNAP_SNAPCRAFT_YAML}
-		yq -i 'del(.parts.u-boot.prime)' ${GADGET_SNAP_SNAPCRAFT_YAML}
-		yq -i 'del(.volumes.ubuntu-core.structure[] | select(.name == "mbr"))' ${GADGET_SNAP_GADGET_YAML}
-	fi
-
-	if [ "${BOOTLOADER_WAIT_FOR_DEPEND}" != "true" ]; then
-		# Delete the wait for depend related code in snapcraft.yaml
-		yq -i 'del(.parts.u-boot.after)' ${GADGET_SNAP_SNAPCRAFT_YAML}
-	fi
-
-	if [ "${ATF_IS_REQUIRED}" != "true" ]; then
-		# Delete the atf related code in snapcraft.yaml
-		yq -i 'del(.parts.atf)' ${GADGET_SNAP_SNAPCRAFT_YAML}
-		yq -i 'del(.parts.u-boot.after[] | select(. == "atf"))' ${GADGET_SNAP_SNAPCRAFT_YAML}
-	fi
-
 	if [ "${SCP_IS_REQUIRED}" != "true" ]; then
-		# Delete the scp related code in snapcraft.yaml
-		yq -i 'del(.parts.scp)' ${GADGET_SNAP_SNAPCRAFT_YAML}
-		yq -i 'del(.parts.u-boot.after[] | select(. == "scp"))' ${GADGET_SNAP_SNAPCRAFT_YAML}
-		cross_compiler="__SCP_CROSS_COMPILER_DEB_PACKAGE__" yq -i \
-			'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' ${GADGET_SNAP_SNAPCRAFT_YAML}
-	fi
+               # Delete the scp related code in snapcraft.yaml
+               cross_compiler="__SCP_CROSS_COMPILER_DEB_PACKAGE__" yq -i \
+                       'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' ${GADGET_SNAP_SNAPCRAFT_YAML}
+       fi
 
 	if [ "${CLOUD_INIT_ENABLED}" != "true" ]; then
 		# Delete the cloud-init related code in snapcraft.yaml
@@ -92,16 +90,7 @@ function load_config()
 		-exec sed -i "s${d}__CROSS_COMPILER_DEB_PACKAGE__${d}${CROSS_COMPILER_DEB_PACKAGE}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__ATF_IS_REQUIRED__${d}${ATF_IS_REQUIRED}${d}g" {} \; \
-		-exec sed -i "s${d}__ATF_GIT_SOURCE__${d}${ATF_GIT_SOURCE}${d}g" {} \; \
-		-exec sed -i "s${d}__ATF_GIT_BRANCH__${d}${ATF_GIT_BRANCH}${d}g" {} \; \
-		-exec sed -i "s${d}__ATF_PLATFORM__${d}${ATF_PLATFORM}${d}g" {} \; \
-		-exec sed -i "s${d}__ATF_DEBUG_LEVEL__${d}${ATF_DEBUG_LEVEL}${d}g" {} \; \
-		\
 		-exec sed -i "s${d}__SCP_IS_REQUIRED__${d}${SCP_IS_REQUIRED}${d}g" {} \; \
-		-exec sed -i "s${d}__SCP_GIT_SOURCE__${d}${SCP_GIT_SOURCE}${d}g" {} \; \
-		-exec sed -i "s${d}__SCP_GIT_BRANCH__${d}${SCP_GIT_BRANCH}${d}g" {} \; \
-		-exec sed -i "s${d}__SCP_DEFCONFIG__${d}${SCP_DEFCONFIG}${d}g" {} \; \
-		-exec sed -i "s${d}__SCP_CROSS_COMPILER__${d}${SCP_CROSS_COMPILER}${d}g" {} \; \
 		-exec sed -i "s${d}__SCP_CROSS_COMPILER_DEB_PACKAGE__${d}${SCP_CROSS_COMPILER_DEB_PACKAGE}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__PARTITION_SCHEMA__${d}${PARTITION_SCHEMA}${d}g" {} \; \
@@ -109,15 +98,8 @@ function load_config()
 		-exec sed -i "s${d}__BOOTLOADER_GIT_BRANCH__${d}${BOOTLOADER_GIT_BRANCH}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_DEFCONFIG__${d}${BOOTLOADER_DEFCONFIG}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_BINARY__${d}${BOOTLOADER_BINARY}${d}g" {} \; \
-		-exec sed -i "s${d}__BOOTLOADER_OFFSET__${d}${BOOTLOADER_OFFSET}${d}g" {} \; \
-		-exec sed -i "s${d}__BOOTLOADER_MAX_SIZE__${d}${BOOTLOADER_MAX_SIZE}${d}g" {} \; \
+		-exec sed -i "s${d}__BOOTLOADER_BINARY_RENAME__${d}${BOOTLOADER_BINARY_RENAME}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_BOOTARGS__${d}${BOOTLOADER_BOOTARGS}${d}g" {} \; \
-		\
-		-exec sed -i "s${d}__FIP_IS_REQUIRED__${d}${FIP_IS_REQUIRED}${d}g" {} \; \
-		-exec sed -i "s${d}__FIP_GIT_SOURCE__${d}${FIP_GIT_SOURCE}${d}g" {} \; \
-		-exec sed -i "s${d}__FIP_GIT_BRANCH__${d}${FIP_GIT_BRANCH}${d}g" {} \; \
-		-exec sed -i "s${d}__FIP_PLATFORM__${d}${FIP_PLATFORM}${d}g" {} \; \
-		-exec sed -i "s${d}__FIP_OUTPUT_BINARY__${d}${FIP_OUTPUT_BINARY}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__MMC_DEV_NUM__${d}${MMC_DEV_NUM}${d}g" {} \; \
 		-exec sed -i "s${d}__KERNEL_LOAD_ADDR__${d}${KERNEL_LOAD_ADDR}${d}g" {} \; \
@@ -154,7 +136,7 @@ function build_ubuntu_core_image()
 	sudo rm -rf work
 	gadget_snap=$(find ${GADGET_SNAP_DIR} -name "*.snap")
 	kernel_snap=$(find ${KERNEL_SNAP_DIR} -name "*.snap")
-	/snap/bin/ubuntu-image snap -d -O out -w work assertions/${ASSERTION_FILE} \
+	/snap/bin/ubuntu-image snap -O out -w work assertions/${ASSERTION_FILE} \
 		--snap=${gadget_snap} --snap=${kernel_snap} ${ARG_EXTRA_SNAPS}
 	cd out/
 

@@ -44,7 +44,6 @@ parts:
       - -firmware/nvidia
       - -firmware/qed
       - -firmware/radeon
-      - -firmware/rockchip
       - -firmware/ath3k-1.fw
       - -firmware/qca/htbtfw20.tlv
       - -firmware/qcom
@@ -78,6 +77,8 @@ parts:
       - CONFIG_SYSTEM_TRUSTED_KEYS=""
       - CONFIG_SYSTEM_REVOCATION_KEYS=""
       - CONFIG_LOCALVERSION="-uc22"
+      - CONFIG_DEFAULT_SECURITY_APPARMOR=y
+      - CONFIG_SQUASHFS=y
     kernel-initrd-modules:
       - nls_iso8859-1
     override-build: |
@@ -87,6 +88,7 @@ parts:
       elif [ ${CRAFT_TARGET_ARCH} == "arm64" ]; then
         cp ${CRAFT_STAGE}/__KERNEL_DEFCONFIG__ ${CRAFT_PART_SRC}/arch/arm64/configs/__KERNEL_DEFCONFIG__
       fi
+      cp -r ${CRAFT_PART_SRC}/* ${CRAFT_PART_BUILD}
       craftctl default
       craftctl set version=$(cat include/generated/utsrelease.h | cut -d \" -f 2)
       mv ${CRAFT_PART_INSTALL}/kernel.img ${CRAFT_PART_INSTALL}/Image

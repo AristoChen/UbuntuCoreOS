@@ -1,0 +1,35 @@
+parts:
+  atf:
+    plugin: nil
+    source: https://github.com/ARM-software/arm-trusted-firmware.git
+    source-type: git
+    source-depth: 1
+    source-branch: master
+    build-environment:
+      - on amd64:
+          - CROSS_COMPILE: aarch64-linux-gnu-
+    override-build: |
+      make PLAT=sun50i_h6 DEBUG=1 bl31
+      cp build/sun50i_h6/debug/bl31.bin ${CRAFT_PART_INSTALL}/
+    prime:
+      - -bl31.bin
+
+  scp:
+    plugin: nil
+    source: https://github.com/crust-firmware/crust.git
+    source-type: git
+    source-depth: 1
+    source-branch: master
+    build-environment:
+      - on amd64:
+          - CROSS_COMPILE: or1k-elf-
+    override-build: |
+      make orangepi_3_defconfig
+      make -j$(nproc)
+      cp build/scp/scp.bin ${CRAFT_PART_INSTALL}/
+    prime:
+
+  u-boot:
+    after:
+      - atf
+      - scp
