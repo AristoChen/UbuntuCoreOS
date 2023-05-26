@@ -68,10 +68,10 @@ function load_config()
 	cd ${BOARD_BUILD_DIR}
 
 	if [ "${SCP_IS_REQUIRED}" != "true" ]; then
-               # Delete the scp related code in snapcraft.yaml
-               cross_compiler="__SCP_CROSS_COMPILER_DEB_PACKAGE__" yq -i \
-                       'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' ${GADGET_SNAP_SNAPCRAFT_YAML}
-       fi
+		# Delete the scp related code in snapcraft.yaml
+		cross_compiler="__SCP_CROSS_COMPILER_DEB_PACKAGE__" yq -i \
+			'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' ${GADGET_SNAP_SNAPCRAFT_YAML}
+	fi
 
 	if [ "${CLOUD_INIT_ENABLED}" != "true" ]; then
 		# Delete the cloud-init related code in snapcraft.yaml
@@ -81,6 +81,9 @@ function load_config()
 	fi
 
 	local d=$'\x03'
+	if [ -n "${BOOTLOADER_BOOTCMD}" ]; then
+		sed -i "s${d}bootm \${fitloadaddr}\$${d}$BOOTLOADER_BOOTCMD${d}g" ${GADGET_SNAP_DIR}/boot-script/boot.cmd
+	fi
 	find . \( -path '*/parts' -prune -o -path '*/stage' -prune -o -path '*/prime' -prune \
 		-o -path './work' -prune -o -path './out' -prune -o -path './*.snap' -prune \) \
 		-o -print -type f \

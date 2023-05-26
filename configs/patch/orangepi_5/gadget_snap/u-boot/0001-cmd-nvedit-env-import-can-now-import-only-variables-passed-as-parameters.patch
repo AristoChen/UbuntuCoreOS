@@ -1,0 +1,148 @@
+From b392a09c107177b3254ac3b1cc95d7693a74dc60 Mon Sep 17 00:00:00 2001
+From: Quentin Schulz <quentin.schulz@bootlin.com>
+Date: Mon, 9 Jul 2018 19:16:29 +0200
+Subject: [PATCH] cmd: nvedit: env import can now import only variables passed
+ as parameters
+
+While the `env export` can take as parameters variables to be exported,
+`env import` does not have such a mechanism of variable selection.
+
+Let's add the ability to add parameters at the end of the command for
+variables to be imported.
+
+Every env variable from the env to be imported passed by parameter to
+this command will override the value of the variable in the current env.
+
+If a variable exists in the current env but not in the imported env, if
+this variable is passed as a parameter to env import, the variable will
+be unset ONLY if the -d option is passed to env import, otherwise the
+current value of the variable is kept.
+
+If a variable exists in the imported env, the variable in the current
+env will be set to the value of the one from the imported env.
+
+All the remaining variables are left untouched.
+
+As the size parameter of env import is positional but optional, let's
+add the possibility to use the sentinel '-' for when we don't want to
+give the size parameter (when the env is '\0' terminated) but we pass a
+list of variables at the end of the command.
+
+env import addr
+env import addr -
+env import addr size
+env import addr - foo1 foo2
+env import addr size foo1 foo2
+
+are all valid.
+
+env import -c addr
+env import -c addr -
+env import -c addr - foo1 foo2
+
+are all invalid because they don't pass the size parameter required for
+checking, while the following are valid.
+
+env import addr size
+env import addr size foo1 foo2
+
+Nothing's changed for the other parameters or the overall behaviour.
+
+One of its use case could be to load a secure environment from the
+signed U-Boot binary and load only a handful of variables from an
+other, unsecure, environment without completely losing control of
+U-Boot.
+
+Signed-off-by: Quentin Schulz <quentin.schulz@bootlin.com>
+Tested-by: Alex Kiernan <alex.kiernan@gmail.com>
+Tested-by: Stephen Warren <swarren@nvidia.com>
+---
+ cmd/nvedit.c | 29 +++++++++++++++++++++--------
+ 1 file changed, 21 insertions(+), 8 deletions(-)
+
+diff --git a/cmd/nvedit.c b/cmd/nvedit.c
+index 591e5d7990..c845419844 100644
+--- a/cmd/nvedit.c
++++ b/cmd/nvedit.c
+@@ -1368,8 +1368,11 @@ sep_err:
+ 
+ #ifdef CONFIG_CMD_IMPORTENV
+ /*
+- * env import [-d] [-t [-r] | -b | -c] addr [size]
+- *	-d:	delete existing environment before importing;
++ * env import [-d] [-t [-r] | -b | -c] addr [size] [var ...]
++ *	-d:	delete existing environment before importing if no var is
++ *		passed; if vars are passed, if one var is in the current
++ *		environment but not in the environment at addr, delete var from
++ *		current environment;
+  *		otherwise overwrite / append to existing definitions
+  *	-t:	assume text format; either "size" must be given or the
+  *		text data must be '\0' terminated
+@@ -1382,6 +1385,11 @@ sep_err:
+  *	addr:	memory address to read from
+  *	size:	length of input data; if missing, proper '\0'
+  *		termination is mandatory
++ *		if var is set and size should be missing (i.e. '\0'
++ *		termination), set size to '-'
++ *	var...	List of the names of the only variables that get imported from
++ *		the environment at address 'addr'. Without arguments, the whole
++ *		environment gets imported.
+  */
+ static int do_env_import(cmd_tbl_t *cmdtp, int flag,
+ 			 int argc, char * const argv[])
+@@ -1393,6 +1401,7 @@ static int do_env_import(cmd_tbl_t *cmdtp, int flag,
+ 	int	fmt = 0;
+ 	int	del = 0;
+ 	int	crlf_is_lf = 0;
++	int	wl = 0;
+ 	size_t	size;
+ 
+ 	cmd = *argv;
+@@ -1441,9 +1450,9 @@ static int do_env_import(cmd_tbl_t *cmdtp, int flag,
+ 	addr = simple_strtoul(argv[0], NULL, 16);
+ 	ptr = map_sysmem(addr, 0);
+ 
+-	if (argc == 2) {
++	if (argc >= 2 && strcmp(argv[1], "-")) {
+ 		size = simple_strtoul(argv[1], NULL, 16);
+-	} else if (argc == 1 && chk) {
++	} else if (chk) {
+ 		puts("## Error: external checksum format must pass size\n");
+ 		return CMD_RET_FAILURE;
+ 	} else {
+@@ -1465,6 +1474,9 @@ static int do_env_import(cmd_tbl_t *cmdtp, int flag,
+ 		printf("## Info: input data size = %zu = 0x%zX\n", size, size);
+ 	}
+ 
++	if (argc > 2)
++		wl = 1;
++
+ 	if (chk) {
+ 		uint32_t crc;
+ 		env_t *ep = (env_t *)ptr;
+@@ -1479,9 +1491,10 @@ static int do_env_import(cmd_tbl_t *cmdtp, int flag,
+ 		ptr = (char *)ep->data;
+ 	}
+ 
+-	if (himport_r(&env_htab, ptr, size, sep, del ? 0 : H_NOCLEAR,
+-			crlf_is_lf, 0, NULL) == 0) {
+-		pr_err("Environment import failed: errno = %d\n", errno);
++	if (!himport_r(&env_htab, ptr, size, sep, del ? 0 : H_NOCLEAR,
++		       crlf_is_lf, wl ? argc - 2 : 0, wl ? &argv[2] : NULL)) {
++		pr_err("## Error: Environment import failed: errno = %d\n",
++		       errno);
+ 		return 1;
+ 	}
+ 	gd->flags |= GD_FLG_ENV_READY;
+@@ -1611,7 +1624,7 @@ static char env_help_text[] =
+ #endif
+ #endif
+ #if defined(CONFIG_CMD_IMPORTENV)
+-	"env import [-d] [-t [-r] | -b | -c] addr [size] - import environment\n"
++	"env import [-d] [-t [-r] | -b | -c] addr [size] [var ...] - import environment\n"
+ #endif
+ 	"env print [-a | name ...] - print environment\n"
+ #if defined(CONFIG_CMD_RUN)
+-- 
+2.34.1
+
