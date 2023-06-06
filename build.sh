@@ -4,13 +4,20 @@ set -ex
 
 function prepare_build_env()
 {
-	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/edge --classic \
-		|| sudo snap install snapcraft --channel=latest/edge --classic
+	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/candidate --classic \
+		|| sudo snap install snapcraft --channel=latest/candidate --classic
 	snap list ubuntu-image && sudo snap refresh ubuntu-image --channel=latest/stable --classic \
 		|| sudo snap install ubuntu-image --channel=latest/stable --classic
 	snap list yq && sudo snap refresh yq --channel=latest/stable --devmode \
 		|| sudo snap install yq --channel=latest/stable --devmode
 
+	if [ "$(dpkg --print-foreign-architectures | grep -c -E "armhf|arm64")" -ne 2 ] ; then
+		sudo cp /etc/apt/sources.list /etc/apt/sources-list-backup
+		sudo dpkg --add-architecture armhf
+		sudo dpkg --add-architecture arm64
+		sudo sed -i 's/^deb \(.*\)/deb [arch=amd64] \1/g' /etc/apt/sources.list
+	fi
+	sudo apt update
 	sudo apt install -y dialog
 }
 
@@ -24,7 +31,7 @@ function choose_board()
 
 	TTY_X=$(($(stty size | awk '{print $2}') - 6)) # determine terminal width
 	TTY_Y=$(($(stty size | awk '{print $1}') - 6)) # determine terminal height
-	BOARD=$(DIALOGRC=$temp_rc dialog --stdout --title "Choose a board" --backtitle "$backtitle" --scrollbar \
+	BOARD=$(DIALOGRC= dialog --stdout --title "Choose a board" --backtitle "$backtitle" --scrollbar \
 		--colors \
 		--menu "Select the target board.\n$STATE_DESCRIPTION" $TTY_Y $TTY_X $((TTY_Y - 8)) "${options[@]}")
 }

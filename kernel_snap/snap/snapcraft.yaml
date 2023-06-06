@@ -14,8 +14,18 @@ grade: stable # must be 'stable' to release into candidate/stable channels
 confinement: devmode # use 'strict' once you have the right plugs and slots
 
 package-repositories:
- - type: apt
-   ppa: snappy-dev/image
+  - type: apt
+    architectures: [ __ARCH__ ]
+    components: [ main ]
+    suites: [ jammy ]
+    key-id: 78E1918602959B9C59103100F1831DDAFC42E99D
+    url: http://ppa.launchpad.net/snappy-dev/image/ubuntu
+  - type: apt
+    architectures: [ __ARCH__ ]
+    components: [ main, multiverse ]
+    suites: [ jammy, jammy-security, jammy-updates, jammy-backports ]
+    key-id: F6ECB3762474EDA9D21B7022871920D1991BC93C
+    url: http://ports.ubuntu.com/ubuntu-ports
 
 parts:
   firmware:

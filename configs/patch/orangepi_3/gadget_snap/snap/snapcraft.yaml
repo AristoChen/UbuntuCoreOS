@@ -28,6 +28,7 @@ parts:
       make -j$(nproc)
       cp build/scp/scp.bin ${CRAFT_PART_INSTALL}/
     prime:
+     - -scp.bin
 
   u-boot:
     after:

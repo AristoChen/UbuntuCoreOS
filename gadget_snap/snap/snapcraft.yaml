@@ -82,8 +82,10 @@ build-packages:
   - device-tree-compiler
   - flex
   - libssl-dev
+  - python3-dev
   - python3-pycryptodome
   - python3-pyelftools
+  - swig
   - u-boot-tools
   - on amd64:
     - __CROSS_COMPILER_DEB_PACKAGE__
