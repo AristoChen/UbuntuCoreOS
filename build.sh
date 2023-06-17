@@ -4,8 +4,8 @@ set -ex
 
 function prepare_build_env()
 {
-	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/candidate --classic \
-		|| sudo snap install snapcraft --channel=latest/candidate --classic
+	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/stable --classic \
+		|| sudo snap install snapcraft --channel=latest/stable --classic
 	snap list ubuntu-image && sudo snap refresh ubuntu-image --channel=latest/stable --classic \
 		|| sudo snap install ubuntu-image --channel=latest/stable --classic
 	snap list yq && sudo snap refresh yq --channel=latest/stable --devmode \
@@ -26,14 +26,12 @@ function choose_board()
 	options=()
 	for board in ${CONFIG_DIR}/*.conf; do
 		options+=("$(basename "${board}" | cut -d'.' -f1)" "$(head -1 "${board}" | cut -d'#' -f2)")
-		echo $options
 	done
 
 	TTY_X=$(($(stty size | awk '{print $2}') - 6)) # determine terminal width
 	TTY_Y=$(($(stty size | awk '{print $1}') - 6)) # determine terminal height
-	BOARD=$(DIALOGRC= dialog --stdout --title "Choose a board" --backtitle "$backtitle" --scrollbar \
-		--colors \
-		--menu "Select the target board.\n$STATE_DESCRIPTION" $TTY_Y $TTY_X $((TTY_Y - 8)) "${options[@]}")
+	BOARD=$(DIALOGRC= dialog --stdout --title "Choose a board" --scrollbar --colors \
+		--menu "Select the target board.\n" ${TTY_Y} ${TTY_X} $((TTY_Y - 8)) "${options[@]}")
 }
 
 function create_build_dir()
@@ -45,32 +43,90 @@ function create_build_dir()
 	[ -d ${BOARD_BUILD_DIR}/${ASSERT_DIR} ] || cp -r ${ASSERT_DIR} ${BOARD_BUILD_DIR}
 }
 
-function load_config()
+function apply_patches()
 {
-	# Load and replace configs
-	CONFIG=${BOARD}.conf
-	GADGET_SNAP_SNAPCRAFT_YAML=${GADGET_SNAP_DIR}/snap/snapcraft.yaml
-	GADGET_SNAP_GADGET_YAML=${GADGET_SNAP_DIR}/gadget.yaml
-	source ${CONFIG_DIR}/${CONFIG}
-
-	# Apply patches
-	PATCH_DIR=${ROOT_DIR}/configs/patch/${BOARD}
 	CACHE_DIR=${ROOT_DIR}/cache/${BOARD}
+	PATCH_DIR=${CACHE_DIR}/patch
+	mkdir -p ${PATCH_DIR}
+	cp -r ${ROOT_DIR}/configs/patch/${BOARD}/* ${PATCH_DIR}
 	if [ ! -f ${CACHE_DIR}/.done_apply_patch ]; then
+		# For gadget.yaml in gadget_snap
 		if [ -f ${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} ]; then
-			yq ". *+ load(\"${ROOT_DIR}/${GADGET_SNAP_GADGET_YAML}\")" ${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} \
-				> ${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}
+			partition_list=( ubuntu-seed ubuntu-boot ubuntu-save ubuntu-data )
+			for part in "${partition_list[@]}"; do
+				length=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\") | .content | length" \
+						${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML})
+				if [ -z "$length" ]; then
+					length=0
+				fi
+				echo "Found ${length} item(s) to be appended"
+				for (( i=0; i<${length}; i++)); do
+					source=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\")" \
+							${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} | yq ".content[$i].source")
+					target=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\")" \
+							${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} | yq ".content[$i].target")
+					yq -i ".volumes.ubuntu-core.structure[0].content += {\"source\": \"${source}\", \"target\": \"${target}\"}" \
+						${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}
+				done
+				yq -i "del(.volumes.ubuntu-core.structure[] | select(.name == \"${part}\"))" ${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}
+			done
+
+			yq ". *+ load(\"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}\")" ${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} \
+				> tmp.yaml
+			mv tmp.yaml ${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}
 		fi
+		# For snapcraft.yaml in gadget_snap
 		if [ -f ${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML} ]; then
-			yq ". *+ load(\"${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}\")" ${ROOT_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML} \
-				> ${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}
+			yq ". *+ load(\"${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}\")" ${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML} \
+				> tmp.yaml
+			mv tmp.yaml ${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}
 		fi
+
+		# For snapcraft.yaml in kernel_snap
+		if [ -f ${PATCH_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML} ]; then
+			yq ". *+ load(\"${PATCH_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}\")" ${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML} \
+				> tmp.yaml
+			mv tmp.yaml ${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}
+		fi
+
+		# Copy patch files, will be applied when building snap
+		# Needs to be handled better
 		find ${PATCH_DIR} -name "*.patch" -exec cp {} ${CACHE_DIR}/${GADGET_SNAP_DIR} \;
 		touch ${CACHE_DIR}/.done_apply_patch
 		echo "Done applying patches for YAML files"
 	else
 		echo "Skip applying patches for YAML files"
 	fi
+}
+
+function load_config()
+{
+	# Load and replace configs
+	CONFIG=${BOARD}.conf
+	GADGET_SNAP_SNAPCRAFT_YAML=${GADGET_SNAP_DIR}/snap/snapcraft.yaml
+	GADGET_SNAP_GADGET_YAML=${GADGET_SNAP_DIR}/gadget.yaml
+	KERNEL_SNAP_SNAPCRAFT_YAML=${KERNEL_SNAP_DIR}/snap/snapcraft.yaml
+	source ${CONFIG_DIR}/${CONFIG}
+
+	# If CROSS_COMPILER related variables are not set in config, then
+	# use default value
+	if [ "${ARCH}" == "armhf" ]; then
+		if [ -z ${CROSS_COMPILER} ]; then
+			CROSS_COMPILER=arm-linux-gnueabihf-
+		fi
+		if [ -z ${CROSS_COMPILER_DEB_PACKAGE} ]; then
+			CROSS_COMPILER_DEB_PACKAGE=gcc-arm-linux-gnueabihf
+		fi
+	elif [ "${ARCH}" == "arm64" ]; then
+		if [ -z ${CROSS_COMPILER} ]; then
+			CROSS_COMPILER=aarch64-linux-gnu-
+		fi
+		if [ -z ${CROSS_COMPILER_DEB_PACKAGE} ]; then
+			CROSS_COMPILER_DEB_PACKAGE=gcc-aarch64-linux-gnu
+		fi
+	fi
+
+	apply_patches
 
 	cd ${BOARD_BUILD_DIR}
 
@@ -119,7 +175,6 @@ function load_config()
 		\
 		-exec sed -i "s${d}__ITS_KERNEL_COMPRESSION__${d}${ITS_KERNEL_COMPRESSION}${d}g" {} \; \
 		-exec sed -i "s${d}__ITS_FDT_NAME__${d}${ITS_FDT_NAME}${d}g" {} \; \
-		-exec sed -i "s${d}__ITS_FDT_PATH__${d}${ITS_FDT_PATH}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__KERNEL_GIT_SOURCE__${d}${KERNEL_GIT_SOURCE}${d}g" {} \; \
 		-exec sed -i "s${d}__KERNEL_GIT_BRANCH__${d}${KERNEL_GIT_BRANCH}${d}g" {} \; \
@@ -129,15 +184,16 @@ function load_config()
 function build_gadget_snap()
 {
 	cd ${BOARD_BUILD_DIR}/${GADGET_SNAP_DIR}
-	sudo snapcraft --build-for=${ARCH} --destructive-mode
+	sudo snapcraft --build-for=${ARCH} --destructive-mode --enable-manifest
 	cd ${ROOR_DIR}
 }
 
 function build_kernel_snap()
 {
 	cd ${BOARD_BUILD_DIR}/${KERNEL_SNAP_DIR}
-	sudo snapcraft --build-for=${ARCH} --destructive-mode --enable-experimental-plugins
-	cd ${ROOR_DIR}
+	sudo snapcraft --build-for=${ARCH} --destructive-mode --enable-manifest \
+		--enable-experimental-plugins
+	cd ${ROOT_DIR}
 }
 
 function build_ubuntu_core_image()
@@ -146,8 +202,10 @@ function build_ubuntu_core_image()
 	sudo rm -rf work
 	gadget_snap=$(find ${GADGET_SNAP_DIR} -name "*.snap")
 	kernel_snap=$(find ${KERNEL_SNAP_DIR} -name "*.snap")
+
+	ASSERTION_FILE=ubuntu-core-22-dangerous-model-${ARCH}.assert
 	/snap/bin/ubuntu-image snap -O out -w work assertions/${ASSERTION_FILE} \
-		--snap=${gadget_snap} --snap=${kernel_snap} ${ARG_EXTRA_SNAPS}
+		--snap=${gadget_snap} --snap=${kernel_snap} ${ARG_EXTRA_SNAPS} --debug
 	cd out/
 
 	local output_image_name="${DEVICE}_Ubuntu_Core_22_${ARCH}.img"

@@ -1,0 +1,62 @@
+assumes: [kernel-assets]
+
+parts:
+  u-boot:
+    override-build: |
+      defconfig_list=( rpi_arm64_defconfig )
+
+      mkdir -p ${CRAFT_PART_INSTALL}/u-boot-bin
+      for defconfig in "${defconfig_list[@]}"; do
+        cat << EOF >> configs/${defconfig}
+      CONFIG_FIT=y
+      CONFIG_LOCALVERSION_AUTO=n
+      EOF
+        make ${defconfig}
+
+        make -j$(nproc) LOCALVERSION="-uc22"
+
+        platform=$(echo ${defconfig} | sed 's/rpi_\(.*\)_defconfig/\1/' | sed 's/_/-/g')
+        cp u-boot.bin ${CRAFT_PART_INSTALL}/u-boot-bin/u-boot-${platform}.bin
+      done
+
+      # Copy licenses
+      mkdir -p ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
+      cp -a Licenses/* ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
+
+      mkenvimage -s 4096 -o ${CRAFT_PART_INSTALL}/boot.sel - < /dev/null
+      touch ${CRAFT_PART_INSTALL}/uboot.conf
+
+  boot-script:
+    override-build: |
+      sed -i "2  i \ " boot.cmd
+      sed -i "3  i # Take fdt addr from the prior stage boot loader, if available" boot.cmd
+      sed -i "4  i if test -n \"\$fdt_addr\"; then" boot.cmd
+      sed -i "5  i \ \ fdt addr \${fdt_addr}" boot.cmd
+      sed -i "6  i \ \ fdt move \${fdt_addr} \${fdt_addr_r}  # implicitly sets fdt active" boot.cmd
+      sed -i "7  i else" boot.cmd
+      sed -i "8  i \ \ fdt addr \${fdt_addr_r}" boot.cmd
+      sed -i "9  i fi" boot.cmd
+      sed -i "10 i fdt get value bootargs /chosen bootargs" boot.cmd
+      mkimage -C none -A arm -T script -d boot.cmd ${CRAFT_PART_INSTALL}/boot.scr
+
+  boot-assets:
+    plugin: nil
+    source: https://github.com/raspberrypi/firmware.git
+    source-type: git
+    source-depth: 1
+    source-branch: master
+    override-build: |
+      rm -rf boot/bcm*dtb boot/kernel*.img
+      mv boot ${CRAFT_PART_INSTALL}/boot-assets
+
+      cat << EOF > ${CRAFT_PART_INSTALL}/boot-assets/config.txt
+      kernel=u-boot-arm64.bin
+      enable_uart=1
+      arm_64bit=1
+      EOF
+
+      cat << EOF > ${CRAFT_PART_INSTALL}/boot-assets/cmdline.txt
+      console=serial0,115200
+      EOF
+    stage:
+      - boot-assets

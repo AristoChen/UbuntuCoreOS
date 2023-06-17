@@ -1,0 +1,14 @@
+assumes: [kernel-assets]
+
+parts:
+  kernel-yaml:
+    plugin: nil
+    override-build: |
+      mkdir -p ${CRAFT_PART_INSTALL}/meta
+      cat << EOF > ${CRAFT_PART_INSTALL}/meta/kernel.yaml
+      assets:
+        dtbs:
+          update: true
+          content:
+            - dtbs/
+      EOF

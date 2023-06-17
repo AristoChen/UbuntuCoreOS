@@ -33,7 +33,7 @@
 			};
 		};
 
-		__DEVICE__ {
+		fdt-uc {
 			description = "__DEVICE__ device tree";
 			data = /incbin/("./__ITS_FDT_PATH__");
 			type = "flat_dt";
@@ -54,7 +54,7 @@
 			description = "__DEVICE__";
 			kernel = "kernel-ubuntu";
 			ramdisk = "ramdisk-uc";
-			fdt = "__DEVICE__";
+			fdt = "fdt-uc";
 		};
 
 	};

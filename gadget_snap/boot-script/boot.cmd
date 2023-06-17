@@ -1,6 +1,6 @@
 # Ubuntu Core 22 U-Boot script (for armhf and arm64)
 
-setenv bootargs "__BOOTLOADER_BOOTARGS__"
+setenv bootargs " ${bootargs} __BOOTLOADER_BOOTARGS__ "
 
 setenv devtype mmc
 setenv mmc_dev_num __MMC_DEV_NUM__

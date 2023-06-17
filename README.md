@@ -17,6 +17,7 @@ Please see official [Ubuntu Core documentation](https://ubuntu.com/core/docs) fo
 - OrangePi PC
 - OrangePi PC2
 - OrangePi Zero
+- RaspberryPi 4(32 bit and 64 bit)
 
 ## How to use
 **Note**: The code is only tested in Ubuntu Jammy environment, other environment are currently not tested.

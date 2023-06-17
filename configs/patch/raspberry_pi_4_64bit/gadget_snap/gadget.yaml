@@ -1,0 +1,13 @@
+volumes:
+  ubuntu-core:
+    structure:
+      - name: ubuntu-seed
+        content:
+          - source: $kernel:dtbs/dtbs/broadcom/
+            target: /
+          - source: $kernel:dtbs/dtbs/overlays/
+            target: /overlays
+          - source: boot-assets/
+            target: /
+          - source: u-boot-bin/
+            target: /

@@ -15,15 +15,15 @@ confinement: devmode # use 'strict' once you have the right plugs and slots
 
 package-repositories:
   - type: apt
-    architectures: [ __ARCH__ ]
-    components: [ main ]
-    suites: [ jammy ]
+    architectures: [__ARCH__]
+    components: [main]
+    suites: [jammy]
     key-id: 78E1918602959B9C59103100F1831DDAFC42E99D
     url: http://ppa.launchpad.net/snappy-dev/image/ubuntu
   - type: apt
-    architectures: [ __ARCH__ ]
-    components: [ main, multiverse ]
-    suites: [ jammy, jammy-security, jammy-updates, jammy-backports ]
+    architectures: [__ARCH__]
+    components: [main, multiverse]
+    suites: [jammy, jammy-security, jammy-updates, jammy-backports]
     key-id: F6ECB3762474EDA9D21B7022871920D1991BC93C
     url: http://ports.ubuntu.com/ubuntu-ports
 
@@ -44,7 +44,6 @@ parts:
       - -firmware/dpaa2
       - -firmware/i915
       - -firmware/intel
-      - -firmware/iwlwifi-*
       - -firmware/liquidio
       - -firmware/matrox
       - -firmware/mellanox
@@ -64,7 +63,9 @@ parts:
     plugin: nil
     source: ${CRAFT_PROJECT_DIR}/configs
     override-build: |
-      cp __KERNEL_DEFCONFIG__ ${CRAFT_PART_INSTALL}
+      if [ -f __KERNEL_DEFCONFIG__ ]; then
+        cp __KERNEL_DEFCONFIG__ ${CRAFT_PART_INSTALL}
+      fi
     prime:
       - -*
 
@@ -93,10 +94,12 @@ parts:
       - nls_iso8859-1
     override-build: |
       touch ${CRAFT_PART_SRC}/.scmversion
-      if [ ${CRAFT_TARGET_ARCH} == "armhf" ]; then
-        cp ${CRAFT_STAGE}/__KERNEL_DEFCONFIG__ ${CRAFT_PART_SRC}/arch/arm/configs/__KERNEL_DEFCONFIG__
-      elif [ ${CRAFT_TARGET_ARCH} == "arm64" ]; then
-        cp ${CRAFT_STAGE}/__KERNEL_DEFCONFIG__ ${CRAFT_PART_SRC}/arch/arm64/configs/__KERNEL_DEFCONFIG__
+      if [ -f ${CRAFT_STAGE}/__KERNEL_DEFCONFIG__ ]; then
+        if [ ${CRAFT_TARGET_ARCH} == "armhf" ]; then
+          cp ${CRAFT_STAGE}/__KERNEL_DEFCONFIG__ ${CRAFT_PART_SRC}/arch/arm/configs/__KERNEL_DEFCONFIG__
+        elif [ ${CRAFT_TARGET_ARCH} == "arm64" ]; then
+          cp ${CRAFT_STAGE}/__KERNEL_DEFCONFIG__ ${CRAFT_PART_SRC}/arch/arm64/configs/__KERNEL_DEFCONFIG__
+        fi
       fi
       cp -r ${CRAFT_PART_SRC}/* ${CRAFT_PART_BUILD}
       craftctl default
@@ -110,7 +113,6 @@ parts:
       - Image
       - modules
     prime:
-      - -dtbs
       - -initrd.img
       - -Image
 
@@ -120,6 +122,12 @@ parts:
     plugin: nil
     override-build: |
       cp ${CRAFT_PROJECT_DIR}/its/kernel.its ./
+      ITS_FDT_NAME=$(grep default kernel.its | sed 's/.*default.*\"\(.*\)\";/\1/')
+      ITS_FDT_PATH=$(find ${CRAFT_STAGE} -name "${ITS_FDT_NAME}" | sed 's/.*stage\/\(.*dtb\)/\1/')
+
+      d=$'\x03'
+      sed -i "s${d}__ITS_FDT_PATH__${d}${ITS_FDT_PATH}${d}g" kernel.its
+
       cp ${CRAFT_STAGE}/Image ./
       cp ${CRAFT_STAGE}/initrd.img ./
       cp -r ${CRAFT_STAGE}/dtbs ./
