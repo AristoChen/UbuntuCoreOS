@@ -31,8 +31,8 @@ parts:
       make __BOOTLOADER_DEFCONFIG__
 
       if [ '__ATF_IS_REQUIRED__' == 'true' ]; then
-        if [ -f ${CRAFT_STAGE}/bl31.bin ]; then
-          cp ${CRAFT_STAGE}/bl31.bin ./
+        if [ -f "${CRAFT_STAGE}"/bl31.bin ]; then
+          cp "${CRAFT_STAGE}"/bl31.bin ./
         else
           echo "Error: bl31.bin not found"
           exit 1
@@ -40,8 +40,8 @@ parts:
       fi
 
       if [ '__SCP_IS_REQUIRED__' == 'true' ]; then
-        if [ -f ${CRAFT_STAGE}/scp.bin ]; then
-          cp ${CRAFT_STAGE}/scp.bin ./
+        if [ -f "${CRAFT_STAGE}"/scp.bin ]; then
+          cp "${CRAFT_STAGE}"/scp.bin ./
         else
           echo "Error: scp.bin not found"
           exit 1
@@ -51,17 +51,17 @@ parts:
       make -j$(nproc) LOCALVERSION="-uc22"
 
       # Copy licenses
-      mkdir -p ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
-      cp -a Licenses/* ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
+      mkdir -p "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
+      cp -a Licenses/* "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
 
       if [ '__BOOTLOADER_BINARY_RENAME__' == 'false' ]; then
-        cp __BOOTLOADER_BINARY__ ${CRAFT_PART_INSTALL}/
+        cp __BOOTLOADER_BINARY__ "${CRAFT_PART_INSTALL}"/
       else
-        cp __BOOTLOADER_BINARY__ ${CRAFT_PART_INSTALL}/bootloader.bin
+        cp __BOOTLOADER_BINARY__ "${CRAFT_PART_INSTALL}"/bootloader.bin
       fi
 
-      mkenvimage -s 4096 -o ${CRAFT_PART_INSTALL}/boot.sel - < /dev/null
-      touch ${CRAFT_PART_INSTALL}/uboot.conf
+      mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
+      touch "${CRAFT_PART_INSTALL}"/uboot.conf
     prime:
       - -__BOOTLOADER_BINARY__
 
@@ -69,7 +69,7 @@ parts:
     plugin: dump
     source: boot-script
     override-build: |
-      mkimage -C none -A arm -T script -d boot.cmd ${CRAFT_PART_INSTALL}/boot.scr
+      mkimage -C none -A arm -T script -d boot.cmd "${CRAFT_PART_INSTALL}"/boot.scr
 
   cloud-init-conf:
     plugin: dump

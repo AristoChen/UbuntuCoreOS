@@ -24,7 +24,7 @@ function prepare_build_env()
 function choose_board()
 {
 	options=()
-	for board in ${CONFIG_DIR}/*.conf; do
+	for board in "${CONFIG_DIR}"/*.conf; do
 		options+=("$(basename "${board}" | cut -d'.' -f1)" "$(head -1 "${board}" | cut -d'#' -f2)")
 	done
 
@@ -36,63 +36,63 @@ function choose_board()
 
 function create_build_dir()
 {
-	BOARD_BUILD_DIR=${ROOT_BUILD_DIR}/${BOARD}
-	[ -d ${BOARD_BUILD_DIR} ] || mkdir -p ${BOARD_BUILD_DIR}
-	[ -d ${BOARD_BUILD_DIR}/${GADGET_SNAP_DIR} ] || cp -r ${GADGET_SNAP_DIR} ${BOARD_BUILD_DIR}
-	[ -d ${BOARD_BUILD_DIR}/${KERNEL_SNAP_DIR} ] || cp -r ${KERNEL_SNAP_DIR} ${BOARD_BUILD_DIR}
-	[ -d ${BOARD_BUILD_DIR}/${ASSERT_DIR} ] || cp -r ${ASSERT_DIR} ${BOARD_BUILD_DIR}
+	BOARD_BUILD_DIR="${ROOT_BUILD_DIR}/${BOARD}"
+	[ -d "${BOARD_BUILD_DIR}" ] || mkdir -p "${BOARD_BUILD_DIR}"
+	[ -d "${BOARD_BUILD_DIR}/${GADGET_SNAP_DIR}" ] || cp -r "${GADGET_SNAP_DIR}" "${BOARD_BUILD_DIR}"
+	[ -d "${BOARD_BUILD_DIR}/${KERNEL_SNAP_DIR}" ] || cp -r "${KERNEL_SNAP_DIR}" "${BOARD_BUILD_DIR}"
+	[ -d "${BOARD_BUILD_DIR}/${ASSERT_DIR}" ] || cp -r "${ASSERT_DIR}" "${BOARD_BUILD_DIR}"
 }
 
 function apply_patches()
 {
-	CACHE_DIR=${ROOT_DIR}/cache/${BOARD}
-	PATCH_DIR=${CACHE_DIR}/patch
-	mkdir -p ${PATCH_DIR}
-	cp -r ${ROOT_DIR}/configs/patch/${BOARD}/* ${PATCH_DIR}
-	if [ ! -f ${CACHE_DIR}/.done_apply_patch ]; then
+	CACHE_DIR="${ROOT_DIR}/cache/${BOARD}"
+	PATCH_DIR="${CACHE_DIR}/patch"
+	mkdir -p "${PATCH_DIR}"
+	cp -r "${ROOT_DIR}/configs/patch/${BOARD}/"* "${PATCH_DIR}"
+	if [ ! -f "${CACHE_DIR}/.done_apply_patch" ]; then
 		# For gadget.yaml in gadget_snap
-		if [ -f ${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} ]; then
+		if [ -f "${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" ]; then
 			partition_list=( ubuntu-seed ubuntu-boot ubuntu-save ubuntu-data )
 			for part in "${partition_list[@]}"; do
 				length=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\") | .content | length" \
-						${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML})
+						"${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}")
 				if [ -z "$length" ]; then
 					length=0
 				fi
 				echo "Found ${length} item(s) to be appended"
 				for (( i=0; i<${length}; i++)); do
 					source=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\")" \
-							${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} | yq ".content[$i].source")
+							"${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" | yq ".content[$i].source")
 					target=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\")" \
-							${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} | yq ".content[$i].target")
+							"${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" | yq ".content[$i].target")
 					yq -i ".volumes.ubuntu-core.structure[0].content += {\"source\": \"${source}\", \"target\": \"${target}\"}" \
-						${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}
+						"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
 				done
-				yq -i "del(.volumes.ubuntu-core.structure[] | select(.name == \"${part}\"))" ${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}
+				yq -i "del(.volumes.ubuntu-core.structure[] | select(.name == \"${part}\"))" "${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}"
 			done
 
-			yq ". *+ load(\"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}\")" ${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML} \
+			yq ". *+ load(\"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}\")" "${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" \
 				> tmp.yaml
-			mv tmp.yaml ${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}
+			mv tmp.yaml "${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
 		fi
 		# For snapcraft.yaml in gadget_snap
-		if [ -f ${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML} ]; then
-			yq ". *+ load(\"${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}\")" ${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML} \
+		if [ -f "${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}" ]; then
+			yq ". *+ load(\"${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}\")" "${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}" \
 				> tmp.yaml
-			mv tmp.yaml ${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}
+			mv tmp.yaml "${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}"
 		fi
 
 		# For snapcraft.yaml in kernel_snap
-		if [ -f ${PATCH_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML} ]; then
-			yq ". *+ load(\"${PATCH_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}\")" ${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML} \
+		if [ -f "${PATCH_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}" ]; then
+			yq ". *+ load(\"${PATCH_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}\")" "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}" \
 				> tmp.yaml
-			mv tmp.yaml ${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}
+			mv tmp.yaml "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
 		fi
 
 		# Copy patch files, will be applied when building snap
 		# Needs to be handled better
-		find ${PATCH_DIR} -name "*.patch" -exec cp {} ${CACHE_DIR}/${GADGET_SNAP_DIR} \;
-		touch ${CACHE_DIR}/.done_apply_patch
+		find "${PATCH_DIR}" -name "*.patch" -exec cp {} "${CACHE_DIR}/${GADGET_SNAP_DIR}" \;
+		touch "${CACHE_DIR}"/.done_apply_patch
 		echo "Done applying patches for YAML files"
 	else
 		echo "Skip applying patches for YAML files"
@@ -102,50 +102,50 @@ function apply_patches()
 function load_config()
 {
 	# Load and replace configs
-	CONFIG=${BOARD}.conf
-	GADGET_SNAP_SNAPCRAFT_YAML=${GADGET_SNAP_DIR}/snap/snapcraft.yaml
-	GADGET_SNAP_GADGET_YAML=${GADGET_SNAP_DIR}/gadget.yaml
-	KERNEL_SNAP_SNAPCRAFT_YAML=${KERNEL_SNAP_DIR}/snap/snapcraft.yaml
-	source ${CONFIG_DIR}/${CONFIG}
+	CONFIG="${BOARD}.conf"
+	GADGET_SNAP_SNAPCRAFT_YAML="${GADGET_SNAP_DIR}/snap/snapcraft.yaml"
+	GADGET_SNAP_GADGET_YAML="${GADGET_SNAP_DIR}/gadget.yaml"
+	KERNEL_SNAP_SNAPCRAFT_YAML="${KERNEL_SNAP_DIR}/snap/snapcraft.yaml"
+	source "${CONFIG_DIR}/${CONFIG}"
 
 	# If CROSS_COMPILER related variables are not set in config, then
 	# use default value
 	if [ "${ARCH}" == "armhf" ]; then
-		if [ -z ${CROSS_COMPILER} ]; then
+		if [ -z "${CROSS_COMPILER}" ]; then
 			CROSS_COMPILER=arm-linux-gnueabihf-
 		fi
-		if [ -z ${CROSS_COMPILER_DEB_PACKAGE} ]; then
+		if [ -z "${CROSS_COMPILER_DEB_PACKAGE}" ]; then
 			CROSS_COMPILER_DEB_PACKAGE=gcc-arm-linux-gnueabihf
 		fi
 	elif [ "${ARCH}" == "arm64" ]; then
-		if [ -z ${CROSS_COMPILER} ]; then
+		if [ -z "${CROSS_COMPILER}" ]; then
 			CROSS_COMPILER=aarch64-linux-gnu-
 		fi
-		if [ -z ${CROSS_COMPILER_DEB_PACKAGE} ]; then
+		if [ -z "${CROSS_COMPILER_DEB_PACKAGE}" ]; then
 			CROSS_COMPILER_DEB_PACKAGE=gcc-aarch64-linux-gnu
 		fi
 	fi
 
 	apply_patches
 
-	cd ${BOARD_BUILD_DIR}
+	cd "${BOARD_BUILD_DIR}"
 
 	if [ "${SCP_IS_REQUIRED}" != "true" ]; then
 		# Delete the scp related code in snapcraft.yaml
 		cross_compiler="__SCP_CROSS_COMPILER_DEB_PACKAGE__" yq -i \
-			'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' ${GADGET_SNAP_SNAPCRAFT_YAML}
+			'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' "${GADGET_SNAP_SNAPCRAFT_YAML}"
 	fi
 
 	if [ "${CLOUD_INIT_ENABLED}" != "true" ]; then
 		# Delete the cloud-init related code in snapcraft.yaml
-		yq -i 'del(.parts.cloud-init-conf)' ${GADGET_SNAP_SNAPCRAFT_YAML}
-		yq -i 'del(.defaults)' ${GADGET_SNAP_GADGET_YAML}
-		yq -i 'del(.volumes.ubuntu-core.structure[] | select(.name == "ubuntu-seed") | .[][] | select(.source == "cloud.conf"))' ${GADGET_SNAP_GADGET_YAML}
+		yq -i 'del(.parts.cloud-init-conf)' "${GADGET_SNAP_SNAPCRAFT_YAML}"
+		yq -i 'del(.defaults)' "${GADGET_SNAP_GADGET_YAML}"
+		yq -i 'del(.volumes.ubuntu-core.structure[] | select(.name == "ubuntu-seed") | .[][] | select(.source == "cloud.conf"))' "${GADGET_SNAP_GADGET_YAML}"
 	fi
 
 	local d=$'\x03'
 	if [ -n "${BOOTLOADER_BOOTCMD}" ]; then
-		sed -i "s${d}bootm \${fitloadaddr}\$${d}$BOOTLOADER_BOOTCMD${d}g" ${GADGET_SNAP_DIR}/boot-script/boot.cmd
+		sed -i "s${d}bootm \${fitloadaddr}\$${d}$BOOTLOADER_BOOTCMD${d}g" "${GADGET_SNAP_DIR}/boot-script/boot.cmd"
 	fi
 	find . \( -path '*/parts' -prune -o -path '*/stage' -prune -o -path '*/prime' -prune \
 		-o -path './work' -prune -o -path './out' -prune -o -path './*.snap' -prune \) \
@@ -183,37 +183,37 @@ function load_config()
 
 function build_gadget_snap()
 {
-	cd ${BOARD_BUILD_DIR}/${GADGET_SNAP_DIR}
-	sudo snapcraft --build-for=${ARCH} --destructive-mode --enable-manifest
-	cd ${ROOR_DIR}
+	cd "${BOARD_BUILD_DIR}/${GADGET_SNAP_DIR}"
+	sudo snapcraft --build-for="${ARCH}" --destructive-mode --enable-manifest
+	cd "${ROOT_DIR}"
 }
 
 function build_kernel_snap()
 {
-	cd ${BOARD_BUILD_DIR}/${KERNEL_SNAP_DIR}
-	sudo snapcraft --build-for=${ARCH} --destructive-mode --enable-manifest \
+	cd "${BOARD_BUILD_DIR}/${KERNEL_SNAP_DIR}"
+	sudo snapcraft --build-for="${ARCH}" --destructive-mode --enable-manifest \
 		--enable-experimental-plugins
-	cd ${ROOT_DIR}
+	cd "${ROOT_DIR}"
 }
 
 function build_ubuntu_core_image()
 {
-	cd ${BOARD_BUILD_DIR}
+	cd "${BOARD_BUILD_DIR}"
 	sudo rm -rf work
-	gadget_snap=$(find ${GADGET_SNAP_DIR} -name "*.snap")
-	kernel_snap=$(find ${KERNEL_SNAP_DIR} -name "*.snap")
+	gadget_snap=$(find "${GADGET_SNAP_DIR}" -name "*.snap")
+	kernel_snap=$(find "${KERNEL_SNAP_DIR}" -name "*.snap")
 
-	ASSERTION_FILE=ubuntu-core-22-dangerous-model-${ARCH}.assert
-	/snap/bin/ubuntu-image snap -O out -w work assertions/${ASSERTION_FILE} \
-		--snap=${gadget_snap} --snap=${kernel_snap} ${ARG_EXTRA_SNAPS} --debug
+	ASSERTION_FILE="ubuntu-core-22-dangerous-model-${ARCH}.assert"
+	/snap/bin/ubuntu-image snap -O out -w work "${ASSERT_DIR}/${ASSERTION_FILE}" \
+		--snap="${gadget_snap}" --snap="${kernel_snap}" "${ARG_EXTRA_SNAPS}" --debug
 	cd out/
 
 	local output_image_name="${DEVICE}_Ubuntu_Core_22_${ARCH}.img"
-	mv ubuntu-core.img ${output_image_name}
-	xz -T0 -z ${output_image_name}
+	mv ubuntu-core.img "${output_image_name}"
+	xz -T0 -z "${output_image_name}"
 
-	[ -d ${OUTPUT_DIR} ] || mkdir -p ${OUTPUT_DIR}
-	mv ${output_image_name}.xz ${OUTPUT_DIR}
+	[ -d "${OUTPUT_DIR}" ] || mkdir -p "${OUTPUT_DIR}"
+	mv "${output_image_name}.xz" "${OUTPUT_DIR}"
 }
 
 # Parsing arguments
@@ -231,12 +231,12 @@ done
 
 
 ROOT_DIR=$(pwd)
-OUTPUT_DIR=$(pwd)/out
-ROOT_BUILD_DIR=${ROOT_DIR}/"cache"
+OUTPUT_DIR="${ROOT_DIR}/out"
+ROOT_BUILD_DIR="${ROOT_DIR}/cache"
 GADGET_SNAP_DIR=gadget_snap
 KERNEL_SNAP_DIR=kernel_snap
 ASSERT_DIR=assertions
-CONFIG_DIR=${ROOT_DIR}/configs
+CONFIG_DIR="${ROOT_DIR}/configs"
 
 prepare_build_env
 choose_board
