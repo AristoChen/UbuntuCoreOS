@@ -1,0 +1,42 @@
+type: model
+authority-id: V2yG6LAupEYdeTz6jHQLLOMkHGd1ZG44
+series: 16
+brand-id: V2yG6LAupEYdeTz6jHQLLOMkHGd1ZG44
+model: ubuntu-core-22
+architecture: riscv64
+base: core22
+grade: dangerous
+snaps:
+  -
+    default-channel: latest/stable
+    id: ThisIsADummyStringForGadgetSnaps
+    name: gadget-snap
+    type: gadget
+  -
+    default-channel: latest/stable
+    id: ThisIsADummyStringForKernelSnaps
+    name: kernel-snap
+    type: kernel
+  -
+    default-channel: latest/stable
+    id: amcUKQILKXHHTlmSa7NMdnXSx02dNeeT
+    name: core22
+    type: base
+  -
+    default-channel: latest/stable
+    id: PMrrV4ml8uWuEUDBT8dSGnKUYbevVhc4
+    name: snapd
+    type: snapd
+timestamp: 2023-03-05T02:00:46Z
+sign-key-sha3-384: J-RYIwjKa7kBS5WpVNM036ri24pNeOaAM3nbDzyv8q55iMF6Y3nJqsVYiBtI56vE
+
+AcLBcwQAAQoAHRYhBBP9k65i7BkdXwGeTA1TXkI+U5x2BQJkj7aJAAoJEA1TXkI+U5x27zsP/3WV
+RIoptbJ6FLZvP3bCDzXyXzGhFCt754aWcghfiUI0Ch/25TKROBeUe/yEmFTQeSEx3gwtEXS+mXrO
+4uoGj4ORqtDObkgsW2I+0H98d+TMwXs0Z3gdiaZxm2opKtt4T7XiNAjtAhcQsV4Btoi7HLPVnXP7
+TkIFcwIEcOmaKVzIfO9w5f1VNL5MWklPQr02YK2tj58Fj93lrPN2Ogw/ylBvEVnYqpAM2B1X41oo
+MVECqlUmEAZkDPo1JsNwkNF/L5taT3dVw/i8H/dfBomnkottCe0tghbCvAxdG5MbOFZ+T7/qHxSi
++/x/ci9kYaTgj5Er9yisnp+haWq7vYA/CnlkAESsm+aID0NhJsAfBdqWPPkwRmqAJk5RO6DXBgQB
+Eax3E6OSuuUttyms1svSnMlMGcyAQGh2YIBUbpVx7PVboW6YAbQ6SHizmCwLWDqXmhPKrAakslC2
+jxRqWY1gnca18NIruPOkGfsk0IO/KY8pIzB1utPi62sznGUpGlb2MS1G07ynfO2zFIwJj9KR0qxN
+kBRnSJpEgB2XGtMLhPJYqNOoFUzijNFdpQ9cY0gObUuvVeBT0UGqZ4rqMNY1+2TC0LEVFUiFL3XX
+Wtkk7Nj2ScbxSJbwvwVd/lfeeEen3Vc5jGHQDPaKwqhRIYh1CO9Dcqxv5xy+B+hLedqTxve1

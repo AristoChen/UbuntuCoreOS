@@ -1,0 +1,71 @@
+parts:
+  u-boot:
+    override-build: |
+      cat << EOF >> configs/__BOOTLOADER_DEFCONFIG__
+      CONFIG_FIT=y
+      CONFIG_LOCALVERSION_AUTO=n
+      EOF
+      sed -i "s/CONFIG_BOOTCOMMAND=\"\(.*\)\"/\
+      CONFIG_BOOTCOMMAND=\"load mmc 1:3 \${scriptaddr} boot.scr; source \${scriptaddr}\"/g" \
+        configs/__BOOTLOADER_DEFCONFIG__
+      sed -i "s/CONFIG_BOOTARGS=\"\(.*\)\"/\
+      CONFIG_BOOTARGS=\"console=tty1 console=ttyS0,115200 earlycon=sbi\"/g" \
+        configs/__BOOTLOADER_DEFCONFIG__
+      make __BOOTLOADER_DEFCONFIG__
+      make -j$(nproc) LOCALVERSION="-uc22"
+
+      cp u-boot.bin "${CRAFT_PART_INSTALL}"/
+      cp spl/u-boot-spl.bin "${CRAFT_PART_INSTALL}"/
+      cp arch/riscv/dts/starfive_visionfive2.dtb "${CRAFT_PART_INSTALL}"/
+
+      # Copy licenses
+      mkdir -p "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
+      cp -a Licenses/* "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
+
+      mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
+      touch "${CRAFT_PART_INSTALL}"/uboot.conf
+    prime:
+      - -u-boot-spl.bin
+      - -starfive_visionfive2.dtb
+
+  spl:
+    after:
+      - u-boot
+    plugin: nil
+    source: https://github.com/starfive-tech/soft_3rdpart.git
+    source-type: git
+    source-depth: 1
+    source-branch: JH7110_VisionFive2_devel
+    override-build: |
+      cd spl_tool
+      make
+      ./spl_tool -c -f "${CRAFT_STAGE}"/u-boot-spl.bin
+      cp "${CRAFT_STAGE}"/u-boot-spl.bin.normal.out "${CRAFT_PART_INSTALL}"/
+
+  open-sbi:
+    after:
+      - u-boot
+    plugin: nil
+    source: https://github.com/starfive-tech/opensbi.git
+    source-type: git
+    source-depth: 1
+    source-branch: master
+    build-environment:
+      - on amd64:
+        - CROSS_COMPILE: riscv64-linux-gnu-
+        - CFLAGS: "-mabi=lp64d -march=rv64imafdc_zicsr_zifencei_zba_zbb"
+    override-build: |
+      mkdir output
+      make PLATFORM=generic FW_PAYLOAD_PATH="${CRAFT_STAGE}"/u-boot.bin \
+        FW_FDT_PATH="${CRAFT_STAGE}"/starfive_visionfive2.dtb \
+        FW_TEXT_START=0x40000000 O=output
+      cp "${CRAFT_PROJECT_DIR}"/its/firmware.its .
+      cp output/platform/generic/firmware/fw_payload.bin .
+      mkimage -f firmware.its -A riscv -O u-boot -T firmware \
+        "${CRAFT_PART_INSTALL}"/visionfive2_fw_payload.img
+
+  boot-script:
+    override-build: |
+      sed -i 's/setenv mmc_seed_part 1/setenv mmc_seed_part 3/g' boot.cmd
+      sed -i 's/setenv mmc_boot_part 2/setenv mmc_boot_part 4/g' boot.cmd
+      mkimage -C none -A arm -T script -d boot.cmd "${CRAFT_PART_INSTALL}"/boot.scr

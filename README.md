@@ -11,13 +11,16 @@ From Linux and maker space tinkerers, to the robotics, automotive and signage in
 Please see official [Ubuntu Core documentation](https://ubuntu.com/core/docs) for more infomation
 
 ## Supported devices
-- Khadas VIM1
-- OrangePi 3
-- OrangePi 5
-- OrangePi PC
-- OrangePi PC2
-- OrangePi Zero
-- RaspberryPi 4(32 bit and 64 bit)
+| SBC                  | ARCH         | NOTE |
+|----------------------|--------------|------|
+| Khadas VIM1          | arm64        |      |
+| OrangePi 3           | arm64        |      |
+| OrangePi 5           | arm64        |      |
+| OrangePi PC          | armhf        |      |
+| OrangePi PC2         | arm64        |      |
+| OrangePi Zero        | armhf        |      |
+| RaspberryPi 4        | armhf, arm64 |      |
+| StarFive VisionFive2 | riscv        |      |
 
 ## How to use
 **Note**: The code is only tested in Ubuntu Jammy environment, other environment are currently not tested.

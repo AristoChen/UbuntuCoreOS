@@ -4,8 +4,8 @@ set -ex
 
 function prepare_build_env()
 {
-	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/stable --classic \
-		|| sudo snap install snapcraft --channel=latest/stable --classic
+	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/edge --classic \
+		|| sudo snap install snapcraft --channel=latest/edge --classic
 	snap list ubuntu-image && sudo snap refresh ubuntu-image --channel=latest/stable --classic \
 		|| sudo snap install ubuntu-image --channel=latest/stable --classic
 	snap list yq && sudo snap refresh yq --channel=latest/stable --devmode \
@@ -49,6 +49,11 @@ function apply_patches()
 	PATCH_DIR="${CACHE_DIR}/patch"
 	mkdir -p "${PATCH_DIR}"
 	cp -r "${ROOT_DIR}/configs/patch/${BOARD}/"* "${PATCH_DIR}"
+
+	if [ -d "${PATCH_DIR}"/gadget_snap/additional ]; then
+		cp -r "${PATCH_DIR}"/gadget_snap/additional/* "${CACHE_DIR}"/gadget_snap/
+	fi
+
 	if [ ! -f "${CACHE_DIR}/.done_apply_patch" ]; then
 		# For gadget.yaml in gadget_snap
 		if [ -f "${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" ]; then
@@ -126,7 +131,9 @@ function load_config()
 		fi
 	fi
 
-	apply_patches
+	if [ -d "${ROOT_DIR}/configs/patch/${BOARD}/" ]; then
+		apply_patches
+	fi
 
 	cd "${BOARD_BUILD_DIR}"
 

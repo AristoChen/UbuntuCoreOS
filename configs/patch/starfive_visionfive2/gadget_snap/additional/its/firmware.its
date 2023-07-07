@@ -1,0 +1,28 @@
+/dts-v1/;
+
+/ {
+	description = "Ubuntu Core FIT boot firmware";
+	#address-cells = <2>;
+
+	images {
+		firmware {
+			description = "Ubuntu-Core-Bootloader";
+			data = /incbin/("./fw_payload.bin");
+			type = "firmware";
+			arch = "riscv";
+			os = "u-boot";
+			compression = "none";
+			load =  <0x40000000>;
+			entry = <0x40000000>;
+		};
+	};
+
+	configurations {
+		default = "firmware-1";
+
+		fimware-1 {
+			description = "__DEVICE__ firmware";
+			firmware = "firmware";
+		};
+	};
+};

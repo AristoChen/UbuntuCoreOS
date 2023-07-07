@@ -89,7 +89,18 @@ parts:
       - CONFIG_SYSTEM_REVOCATION_KEYS=""
       - CONFIG_LOCALVERSION="-uc22"
       - CONFIG_DEFAULT_SECURITY_APPARMOR=y
+      - CONFIG_ENCRYPTED_KEYS=y
       - CONFIG_SQUASHFS=y
+      - CONFIG_SQUASHFS_XATTR=y
+      - CONFIG_SQUASHFS_XZ=y
+      - CONFIG_SQUASHFS_LZO=y
+      - CONFIG_SECURITY=y
+      - CONFIG_SECURITY_APPARMOR=y
+      - CONFIG_SYN_COOKIES=y
+      - CONFIG_STRICT_DEVMEM=y
+      - CONFIG_SECCOMP=y
+      - CONFIG_SECCOMP_FILTER=y
+
     kernel-initrd-modules:
       - nls_iso8859-1
     override-build: |
