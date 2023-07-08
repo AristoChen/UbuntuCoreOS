@@ -31,33 +31,13 @@ parts:
   firmware:
     plugin: nil
     stage-packages:
+      - bluez-firmware
       - linux-firmware
+      - wireless-regdb
     organize:
       lib/firmware: firmware
-    stage:
-      - -firmware/amd
-      - -firmware/amdgpu
-      - -firmware/asihpi
-      - -firmware/cavium
-      - -firmware/cxgb3
-      - -firmware/cxgb4
-      - -firmware/dpaa2
-      - -firmware/i915
-      - -firmware/intel
-      - -firmware/liquidio
-      - -firmware/matrox
-      - -firmware/mellanox
-      - -firmware/mrvl
-      - -firmware/moxa
-      - -firmware/netronome
-      - -firmware/nvidia
-      - -firmware/qed
-      - -firmware/radeon
-      - -firmware/ath3k-1.fw
-      - -firmware/qca/htbtfw20.tlv
-      - -firmware/qcom
-      - -firmware/s5p*
-      - -lib
+    prime:
+      - firmware
 
   config:
     plugin: nil
@@ -116,6 +96,11 @@ parts:
       craftctl default
       craftctl set version=$(cat include/generated/utsrelease.h | cut -d \" -f 2)
       mv "${CRAFT_PART_INSTALL}"/kernel.img "${CRAFT_PART_INSTALL}"/Image
+    override-prime: |
+      craftctl default
+      git clone https://git.launchpad.net/~canonical-kernel-snaps/+git/kernel-snaps-uc22 \
+        --depth 1 pi-kernel
+      pi-kernel/trim-firmware "${CRAFT_PRIME}"
     stage:
       - dtbs
       - System.map-*
