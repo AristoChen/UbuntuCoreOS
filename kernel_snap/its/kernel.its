@@ -9,7 +9,7 @@
 			description = "Ubuntu-Core-Kernel";
 			data = /incbin/("./Image");
 			type = "kernel";
-			arch = "__ARCH__";
+			arch = "__ITS_ARCH__";
 			os = "linux";
 			compression = "__ITS_KERNEL_COMPRESSION__";
 			load =  <__KERNEL_LOAD_ADDR__>;
@@ -23,7 +23,7 @@
 			description = "Ubuntu-Core-Ramdisk";
 			data = /incbin/("./initrd.img");
 			type = "ramdisk";
-			arch = "__ARCH__";
+			arch = "__ITS_ARCH__";
 			os = "linux";
 			compression = "none";
 			load =  <__RAMDISK_LOAD_ADDR__>;
@@ -37,7 +37,7 @@
 			description = "__DEVICE__ device tree";
 			data = /incbin/("./__ITS_FDT_PATH__");
 			type = "flat_dt";
-			arch = "__ARCH__";
+			arch = "__ITS_ARCH__";
 			compression = "none";
 			load =  <__FDT_LOAD_ADDR__>;
 			entry = <__FDT_LOAD_ADDR__>;

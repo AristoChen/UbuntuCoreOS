@@ -10,7 +10,7 @@ parts:
           - CROSS_COMPILE: aarch64-linux-gnu-
     override-build: |
       make PLAT=sun50i_a64 DEBUG=1 bl31
-      cp build/sun50i_a64/debug/bl31.bin ${CRAFT_PART_INSTALL}/
+      cp build/sun50i_a64/debug/bl31.bin "${CRAFT_PART_INSTALL}"/
     prime:
       - -bl31.bin
 
@@ -22,11 +22,11 @@ parts:
     source-branch: master
     build-environment:
       - on amd64:
-          - CROSS_COMPILE: or1k-elf-
+          - CROSS_COMPILE: __SCP_CROSS_COMPILE__
     override-build: |
       make orangepi_pc2_defconfig
       make -j$(nproc)
-      cp build/scp/scp.bin ${CRAFT_PART_INSTALL}/
+      cp build/scp/scp.bin "${CRAFT_PART_INSTALL}"/
     prime:
       - -scp.bin
 

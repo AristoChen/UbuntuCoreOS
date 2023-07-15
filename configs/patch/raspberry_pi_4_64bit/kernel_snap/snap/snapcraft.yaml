@@ -4,8 +4,8 @@ parts:
   kernel-yaml:
     plugin: nil
     override-build: |
-      mkdir -p ${CRAFT_PART_INSTALL}/meta
-      cat << EOF > ${CRAFT_PART_INSTALL}/meta/kernel.yaml
+      mkdir -p "${CRAFT_PART_INSTALL}"/meta
+      cat << EOF > "${CRAFT_PART_INSTALL}"/meta/kernel.yaml
       assets:
         dtbs:
           update: true

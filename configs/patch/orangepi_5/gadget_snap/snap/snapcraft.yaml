@@ -19,18 +19,18 @@ parts:
       EOF
       make __BOOTLOADER_DEFCONFIG__
 
-      cp ${CRAFT_PROJECT_DIR}/0001-cmd-nvedit-env-import-can-now-import-only-variables-passed-as-parameters.patch ./
-      git am 0001-cmd-nvedit-env-import-can-now-import-only-variables-passed-as-parameters.patch
-      make BL31=$(find ${CRAFT_STAGE}/rkbin -name "rk3588_bl31*.elf") spl/u-boot-spl.bin u-boot.dtb u-boot.itb \
+      cp "${CRAFT_PROJECT_DIR}"/u-boot-patch/*.patch ./
+      patch -p1 < *.patch
+      make BL31=$(find "${CRAFT_STAGE}"/rkbin -name "rk3588_bl31*.elf") spl/u-boot-spl.bin u-boot.dtb u-boot.itb \
         -j$(nproc) LOCALVERSION="-uc22"
-      RK3588_BIN=$(find ${CRAFT_STAGE}/rkbin/bin/rk35/ -name "rk3588_ddr_lp4_2112MHz_lp5_2736MHz_v*.bin")
-      tools/mkimage -n rk3588 -T rksd -d ${RK3588_BIN}:spl/u-boot-spl.bin idbloader.img
-      cp idbloader.img ${CRAFT_PART_INSTALL}/bootloader.bin
-      cp u-boot.itb ${CRAFT_PART_INSTALL}/
+      RK3588_BIN=$(find "${CRAFT_STAGE}"/rkbin/bin/rk35/ -name "rk3588_ddr_lp4_2112MHz_lp5_2736MHz_v*.bin")
+      tools/mkimage -n rk3588 -T rksd -d "${RK3588_BIN}":spl/u-boot-spl.bin idbloader.img
+      cp idbloader.img "${CRAFT_PART_INSTALL}"/bootloader.bin
+      cp u-boot.itb "${CRAFT_PART_INSTALL}"/
 
       # Copy licenses
-      mkdir -p ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
-      cp -a Licenses/* ${CRAFT_PART_INSTALL}/usr/share/doc/u-boot
+      mkdir -p "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
+      cp -a Licenses/* "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
 
-      mkenvimage -s 4096 -o ${CRAFT_PART_INSTALL}/boot.sel - < /dev/null
-      touch ${CRAFT_PART_INSTALL}/uboot.conf
+      mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
+      touch "${CRAFT_PART_INSTALL}"/uboot.conf

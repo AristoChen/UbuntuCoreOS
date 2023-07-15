@@ -22,7 +22,7 @@ parts:
     source-branch: __BOOTLOADER_GIT_BRANCH__
     build-environment:
       - on amd64:
-        - CROSS_COMPILE: __CROSS_COMPILER__
+        - CROSS_COMPILE: __CROSS_COMPILE__
     override-build: |
       cat << EOF >> configs/__BOOTLOADER_DEFCONFIG__
       CONFIG_FIT=y
@@ -69,7 +69,7 @@ parts:
     plugin: dump
     source: boot-script
     override-build: |
-      mkimage -C none -A arm -T script -d boot.cmd "${CRAFT_PART_INSTALL}"/boot.scr
+      mkimage -C none -A __ITS_ARCH__ -T script -d boot.cmd "${CRAFT_PART_INSTALL}"/boot.scr
 
   cloud-init-conf:
     plugin: dump
@@ -89,5 +89,5 @@ build-packages:
   - swig
   - u-boot-tools
   - on amd64:
-    - __CROSS_COMPILER_DEB_PACKAGE__
-    - __SCP_CROSS_COMPILER_DEB_PACKAGE__
+    - __CROSS_COMPILE_DEB_PACKAGE__
+    - __SCP_CROSS_COMPILE_DEB_PACKAGE__

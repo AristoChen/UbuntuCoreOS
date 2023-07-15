@@ -94,9 +94,6 @@ function apply_patches()
 			mv tmp.yaml "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
 		fi
 
-		# Copy patch files, will be applied when building snap
-		# Needs to be handled better
-		find "${PATCH_DIR}" -name "*.patch" -exec cp {} "${CACHE_DIR}/${GADGET_SNAP_DIR}" \;
 		touch "${CACHE_DIR}"/.done_apply_patch
 		echo "Done applying patches for YAML files"
 	else
@@ -113,21 +110,28 @@ function load_config()
 	KERNEL_SNAP_SNAPCRAFT_YAML="${KERNEL_SNAP_DIR}/snap/snapcraft.yaml"
 	source "${CONFIG_DIR}/${CONFIG}"
 
-	# If CROSS_COMPILER related variables are not set in config, then
+	# If CROSS_COMPILE related variables are not set in config, then
 	# use default value
 	if [ "${ARCH}" == "armhf" ]; then
-		if [ -z "${CROSS_COMPILER}" ]; then
-			CROSS_COMPILER=arm-linux-gnueabihf-
+		if [ -z "${CROSS_COMPILE}" ]; then
+			CROSS_COMPILE=arm-linux-gnueabihf-
 		fi
-		if [ -z "${CROSS_COMPILER_DEB_PACKAGE}" ]; then
-			CROSS_COMPILER_DEB_PACKAGE=gcc-arm-linux-gnueabihf
+		if [ -z "${CROSS_COMPILE_DEB_PACKAGE}" ]; then
+			CROSS_COMPILE_DEB_PACKAGE=gcc-arm-linux-gnueabihf
 		fi
 	elif [ "${ARCH}" == "arm64" ]; then
-		if [ -z "${CROSS_COMPILER}" ]; then
-			CROSS_COMPILER=aarch64-linux-gnu-
+		if [ -z "${CROSS_COMPILE}" ]; then
+			CROSS_COMPILE=aarch64-linux-gnu-
 		fi
-		if [ -z "${CROSS_COMPILER_DEB_PACKAGE}" ]; then
-			CROSS_COMPILER_DEB_PACKAGE=gcc-aarch64-linux-gnu
+		if [ -z "${CROSS_COMPILE_DEB_PACKAGE}" ]; then
+			CROSS_COMPILE_DEB_PACKAGE=gcc-aarch64-linux-gnu
+		fi
+	elif [ "${ARCH}" == "riscv64" ]; then
+		if [ -z "${CROSS_COMPILE}" ]; then
+			CROSS_COMPILE=riscv64-linux-gnu-
+		fi
+		if [ -z "${CROSS_COMPILE_DEB_PACKAGE}" ]; then
+			CROSS_COMPILE_DEB_PACKAGE=gcc-riscv64-linux-gnu
 		fi
 	fi
 
@@ -139,7 +143,7 @@ function load_config()
 
 	if [ "${SCP_IS_REQUIRED}" != "true" ]; then
 		# Delete the scp related code in snapcraft.yaml
-		cross_compiler="__SCP_CROSS_COMPILER_DEB_PACKAGE__" yq -i \
+		cross_compiler="__SCP_CROSS_COMPILE_DEB_PACKAGE__" yq -i \
 			'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' "${GADGET_SNAP_SNAPCRAFT_YAML}"
 	fi
 
@@ -159,12 +163,13 @@ function load_config()
 		-o -print -type f \
 		-exec sed -i "s${d}__DEVICE__${d}${DEVICE}${d}g" {} \; \
 		-exec sed -i "s${d}__ARCH__${d}${ARCH}${d}g" {} \; \
-		-exec sed -i "s${d}__CROSS_COMPILER__${d}${CROSS_COMPILER}${d}g" {} \; \
-		-exec sed -i "s${d}__CROSS_COMPILER_DEB_PACKAGE__${d}${CROSS_COMPILER_DEB_PACKAGE}${d}g" {} \; \
+		-exec sed -i "s${d}__CROSS_COMPILE__${d}${CROSS_COMPILE}${d}g" {} \; \
+		-exec sed -i "s${d}__CROSS_COMPILE_DEB_PACKAGE__${d}${CROSS_COMPILE_DEB_PACKAGE}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__ATF_IS_REQUIRED__${d}${ATF_IS_REQUIRED}${d}g" {} \; \
 		-exec sed -i "s${d}__SCP_IS_REQUIRED__${d}${SCP_IS_REQUIRED}${d}g" {} \; \
-		-exec sed -i "s${d}__SCP_CROSS_COMPILER_DEB_PACKAGE__${d}${SCP_CROSS_COMPILER_DEB_PACKAGE}${d}g" {} \; \
+		-exec sed -i "s${d}__SCP_CROSS_COMPILE__${d}${SCP_CROSS_COMPILE}${d}g" {} \; \
+		-exec sed -i "s${d}__SCP_CROSS_COMPILE_DEB_PACKAGE__${d}${SCP_CROSS_COMPILE_DEB_PACKAGE}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__PARTITION_SCHEMA__${d}${PARTITION_SCHEMA}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_GIT_SOURCE__${d}${BOOTLOADER_GIT_SOURCE}${d}g" {} \; \
@@ -181,6 +186,7 @@ function load_config()
 		-exec sed -i "s${d}__FIT_LOAD_ADDR__${d}${FIT_LOAD_ADDR}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__ITS_KERNEL_COMPRESSION__${d}${ITS_KERNEL_COMPRESSION}${d}g" {} \; \
+		-exec sed -i "s${d}__ITS_ARCH__${d}${ITS_ARCH}${d}g" {} \; \
 		-exec sed -i "s${d}__ITS_FDT_NAME__${d}${ITS_FDT_NAME}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__KERNEL_GIT_SOURCE__${d}${KERNEL_GIT_SOURCE}${d}g" {} \; \
@@ -229,8 +235,12 @@ while [ -n "$1" ]; do
 		--snap=*)
 			ARG_EXTRA_SNAPS="${ARG_EXTRA_SNAPS}--snap=${1#*=} "
 		;;
+		--board=*)
+			BOARD="${1#*=}"
+		;;
 		* )
-			echo "ERROR: unknown option $1"
+			echo "ERROR: unknown option ${1}"
+			exit 1
 		;;
 	esac
 	shift
@@ -246,7 +256,9 @@ ASSERT_DIR=assertions
 CONFIG_DIR="${ROOT_DIR}/configs"
 
 prepare_build_env
-choose_board
+if [ -z "${BOARD}" ]; then
+	choose_board
+fi
 create_build_dir
 load_config
 build_gadget_snap

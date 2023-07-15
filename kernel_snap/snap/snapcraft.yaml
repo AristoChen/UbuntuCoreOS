@@ -100,7 +100,9 @@ parts:
       craftctl default
       git clone https://git.launchpad.net/~canonical-kernel-snaps/+git/kernel-snaps-uc22 \
         --depth 1 pi-kernel
+      mkdir -p "${CRAFT_PRIME}"/firmware.new
       pi-kernel/trim-firmware "${CRAFT_PRIME}"
+      rm -rf "${CRAFT_PRIME}"/pi-kernel
     stage:
       - dtbs
       - System.map-*
@@ -143,4 +145,4 @@ build-packages:
   - python3-pyelftools
   - u-boot-tools
   - on amd64:
-    - __CROSS_COMPILER_DEB_PACKAGE__
+    - __CROSS_COMPILE_DEB_PACKAGE__
