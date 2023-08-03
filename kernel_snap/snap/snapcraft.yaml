@@ -101,6 +101,7 @@ parts:
       git clone https://git.launchpad.net/~canonical-kernel-snaps/+git/kernel-snaps-uc22 \
         --depth 1 pi-kernel
       mkdir -p "${CRAFT_PRIME}"/firmware.new
+      mkdir -p "${CRAFT_PRIME}"/firmware.new/brcm
       pi-kernel/trim-firmware "${CRAFT_PRIME}"
       rm -rf "${CRAFT_PRIME}"/pi-kernel
     stage:

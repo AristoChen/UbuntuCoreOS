@@ -1,0 +1,15 @@
+parts:
+  firmware-custom:
+    after:
+      - kernel
+    plugin: nil
+    source: https://github.com/orangepi-xunlong/firmware.git
+    source-type: git
+    source-depth: 1
+    source-branch: master
+    override-build: |
+      mkdir -p "${CRAFT_PART_INSTALL}"/firmware/brcm/
+      cp brcm/brcmfmac43456-sdio.bin \
+        "${CRAFT_PART_INSTALL}"/firmware/brcm/brcmfmac43456-sdio.xunlong,orangepi-3.bin
+      cp brcm/brcmfmac43456-sdio.txt \
+        "${CRAFT_PART_INSTALL}"/firmware/brcm/brcmfmac43456-sdio.xunlong,orangepi-3.txt

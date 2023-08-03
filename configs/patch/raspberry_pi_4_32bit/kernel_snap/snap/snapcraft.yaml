@@ -12,3 +12,9 @@ parts:
           content:
             - dtbs/
       EOF
+
+  firmware-rename:
+    plugin: nil
+    override-prime: |
+      mv "${CRAFT_PRIME}"/firmware/brcm/brcmfmac43455-sdio.bin \
+        "${CRAFT_PRIME}"/firmware/brcm/brcmfmac43455-sdio.raspberrypi,4-model-b.bin
