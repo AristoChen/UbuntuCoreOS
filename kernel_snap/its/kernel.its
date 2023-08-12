@@ -5,7 +5,7 @@
 	#address-cells = <1>;
 
 	images {
-		kernel-ubuntu {
+		kernel-uc {
 			description = "Ubuntu-Core-Kernel";
 			data = /incbin/("./Image");
 			type = "kernel";
@@ -52,7 +52,7 @@
 
 		__ITS_FDT_NAME__ {
 			description = "__DEVICE__";
-			kernel = "kernel-ubuntu";
+			kernel = "kernel-uc";
 			ramdisk = "ramdisk-uc";
 			fdt = "fdt-uc";
 		};
