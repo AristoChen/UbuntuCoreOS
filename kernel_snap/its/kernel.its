@@ -48,9 +48,9 @@
 	};
 
 	configurations {
-		default = "__ITS_FDT_NAME__";
+		default = "config-uc";
 
-		__ITS_FDT_NAME__ {
+		config-uc {
 			description = "__DEVICE__";
 			kernel = "kernel-uc";
 			ramdisk = "ramdisk-uc";

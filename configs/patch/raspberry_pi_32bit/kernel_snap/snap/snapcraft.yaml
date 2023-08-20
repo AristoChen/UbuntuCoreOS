@@ -1,0 +1,44 @@
+assumes: [kernel-assets]
+
+parts:
+  kernel-yaml:
+    plugin: nil
+    override-build: |
+      mkdir -p "${CRAFT_PART_INSTALL}"/meta
+      cat << EOF > "${CRAFT_PART_INSTALL}"/meta/kernel.yaml
+      assets:
+        dtbs:
+          update: true
+          content:
+            - dtbs/
+      EOF
+
+  fit-image:
+    plugin: nil
+    override-build: |
+      cp "${CRAFT_PROJECT_DIR}"/its/kernel.its ./tmp.its
+
+      # Remove fdt entry from kernel.its because it's loaded in prior
+      # stage boot loader, so no need to include fdt in fit-image
+      cat tmp.its | tr '\n' '\r' |\
+        sed 's/\(fdt-uc {.*algo = "sha256";.*};.*};\)\(.*};.*configurations.*};.*};\)/\2/' |\
+        tr '\r' '\n' > kernel.its
+      sed -i '/fdt = "fdt-uc";/d' kernel.its
+
+      cp "${CRAFT_STAGE}"/Image ./
+      cp "${CRAFT_STAGE}"/initrd.img ./
+      cp -r "${CRAFT_STAGE}"/dtbs ./
+
+      mkimage -f kernel.its "${CRAFT_PART_INSTALL}"/kernel.img
+
+  firmware-custom:
+    after:
+      - kernel
+    plugin: nil
+    source: https://github.com/RPi-Distro/firmware-nonfree.git
+    source-type: git
+    source-depth: 1
+    override-prime: |
+      mkdir -p "${CRAFT_PRIME}"/firmware/brcm/
+      cp -ar "${CRAFT_PART_BUILD}"/debian/config/brcm80211/* "${CRAFT_PRIME}"/firmware/
+      cp -ar "${CRAFT_STAGE}"/firmware/cypress/cyfmac43455-sdio.bin "${CRAFT_PRIME}"/firmware/cypress/
