@@ -121,8 +121,7 @@ parts:
     plugin: nil
     override-build: |
       cp "${CRAFT_PROJECT_DIR}"/its/kernel.its ./
-      ITS_FDT_NAME=$(grep default kernel.its | sed 's/.*default.*\"\(.*\)\";/\1/')
-      ITS_FDT_PATH=$(find "${CRAFT_STAGE}" -name "${ITS_FDT_NAME}" | sed 's/.*stage\/\(.*dtb\)/\1/')
+      ITS_FDT_PATH=$(find "${CRAFT_STAGE}" -name "__ITS_FDT_NAME__" | sed 's/.*stage\/\(.*dtb\)/\1/')
 
       d=$'\x03'
       sed -i "s${d}__ITS_FDT_PATH__${d}${ITS_FDT_PATH}${d}g" kernel.its
