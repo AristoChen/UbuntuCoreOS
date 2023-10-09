@@ -11,14 +11,19 @@ function prepare_build_env()
 	snap list yq && sudo snap refresh yq --channel=latest/stable --devmode \
 		|| sudo snap install yq --channel=latest/stable --devmode
 
-	if [ "$(dpkg --print-foreign-architectures | grep -c -E "armhf|arm64")" -ne 2 ] ; then
+	if [ "$(uname -p)" == "x86_64" ] && [ "$(dpkg --print-foreign-architectures | grep -c -E "armhf|arm64")" -ne 2 ] ; then
 		sudo cp /etc/apt/sources.list /etc/apt/sources-list-backup
 		sudo dpkg --add-architecture armhf
 		sudo dpkg --add-architecture arm64
 		sudo sed -i 's/^deb \(.*\)/deb [arch=amd64] \1/g' /etc/apt/sources.list
 	fi
+	if [ "$(uname -p)" == "aarch64" ] && [ "$(dpkg --print-foreign-architectures | grep -c -E "armhf")" -ne 1 ] ; then
+		sudo cp /etc/apt/sources.list /etc/apt/sources-list-backup
+		sudo dpkg --add-architecture armhf
+		sudo sed -i 's/^deb \(.*\)/deb [arch=arm64] \1/g' /etc/apt/sources.list
+	fi
 	sudo apt update
-	sudo apt install -y dialog
+	sudo apt install -y dialog dosfstools
 }
 
 function choose_board()
@@ -145,6 +150,7 @@ function load_config()
 		# Delete the scp related code in snapcraft.yaml
 		cross_compiler="__SCP_CROSS_COMPILE_DEB_PACKAGE__" yq -i \
 			'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' "${GADGET_SNAP_SNAPCRAFT_YAML}"
+		yq -i 'del(.["build-packages"][] | select(has("on arm64")))' "${GADGET_SNAP_SNAPCRAFT_YAML}"
 	fi
 
 	if [ "${CLOUD_INIT_ENABLED}" != "true" ]; then

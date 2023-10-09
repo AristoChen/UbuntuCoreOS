@@ -7,7 +7,7 @@ description: |
 
 type: gadget
 architectures:
-  - build-on: amd64
+  - build-on: [amd64, arm64]
     build-for: __ARCH__
 
 grade: stable # must be 'stable' to release into candidate/stable channels
@@ -86,8 +86,11 @@ build-packages:
   - python3-dev
   - python3-pycryptodome
   - python3-pyelftools
+  - python3-setuptools
   - swig
   - u-boot-tools
   - on amd64:
     - __CROSS_COMPILE_DEB_PACKAGE__
+    - __SCP_CROSS_COMPILE_DEB_PACKAGE__
+  - on arm64:
     - __SCP_CROSS_COMPILE_DEB_PACKAGE__

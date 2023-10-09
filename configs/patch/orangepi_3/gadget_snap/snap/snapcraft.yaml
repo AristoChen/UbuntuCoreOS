@@ -23,6 +23,8 @@ parts:
     build-environment:
       - on amd64:
           - CROSS_COMPILE: __SCP_CROSS_COMPILE__
+      - on arm64:
+          - CROSS_COMPILE: __SCP_CROSS_COMPILE__
     override-build: |
       make orangepi_3_defconfig
       make -j$(nproc)

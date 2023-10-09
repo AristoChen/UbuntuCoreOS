@@ -4,7 +4,8 @@ parts:
     source: https://github.com/ARM-software/arm-trusted-firmware.git
     source-type: git
     source-depth: 1
-    source-branch: master
+    # Build will fail with master branch at the moment
+    source-branch: lts-v2.8.8
     build-environment:
       - on amd64:
           - CROSS_COMPILE: aarch64-linux-gnu-
@@ -22,6 +23,8 @@ parts:
     source-branch: master
     build-environment:
       - on amd64:
+          - CROSS_COMPILE: __SCP_CROSS_COMPILE__
+      - on arm64:
           - CROSS_COMPILE: __SCP_CROSS_COMPILE__
     override-build: |
       make orangepi_pc2_defconfig

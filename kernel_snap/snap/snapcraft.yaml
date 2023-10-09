@@ -7,7 +7,7 @@ description: |
 type: kernel
 adopt-info: kernel
 architectures:
-  - build-on: amd64
+  - build-on: [amd64, arm64]
     build-for: __ARCH__
 
 grade: stable # must be 'stable' to release into candidate/stable channels

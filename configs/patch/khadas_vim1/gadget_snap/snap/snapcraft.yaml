@@ -12,3 +12,6 @@ parts:
       ./build-fip.sh khadas-vim "${CRAFT_STAGE}"/u-boot.bin output/
       dd if=output/u-boot.bin.sd.bin of="${CRAFT_PART_INSTALL}"/bootloader.bin bs=512 skip=1 conv=fsync
       dd if=output/u-boot.bin.sd.bin of="${CRAFT_PART_INSTALL}"/mbr.bin bs=1 count=440 conv=fsync
+
+build-packages:
+  - qemu-user
