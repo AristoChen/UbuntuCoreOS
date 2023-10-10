@@ -60,8 +60,10 @@ parts:
         cp __BOOTLOADER_BINARY__ "${CRAFT_PART_INSTALL}"/bootloader.bin
       fi
 
-      mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
-      touch "${CRAFT_PART_INSTALL}"/uboot.conf
+      if [ '__BOOT_PROCESS__' == 'U-Boot' ]; then
+        mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
+        touch "${CRAFT_PART_INSTALL}"/uboot.conf
+      fi
     prime:
       - -__BOOTLOADER_BINARY__
 
@@ -69,7 +71,9 @@ parts:
     plugin: dump
     source: boot-script
     override-build: |
-      mkimage -C none -A __ITS_ARCH__ -T script -d boot.cmd "${CRAFT_PART_INSTALL}"/boot.scr
+      if [ '__BOOT_PROCESS__' == 'U-Boot' ]; then
+        mkimage -C none -A __ITS_ARCH__ -T script -d boot.cmd "${CRAFT_PART_INSTALL}"/boot.scr
+      fi
 
   cloud-init-conf:
     plugin: dump
