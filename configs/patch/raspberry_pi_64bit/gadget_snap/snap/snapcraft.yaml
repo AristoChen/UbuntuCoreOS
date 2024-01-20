@@ -23,23 +23,27 @@ parts:
       mkdir -p "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
       cp -a Licenses/* "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
 
-      mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
-      touch "${CRAFT_PART_INSTALL}"/uboot.conf
+      if [ '__BOOT_PROCESS__' == 'U-Boot' ]; then
+        mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
+        touch "${CRAFT_PART_INSTALL}"/uboot.conf
+      fi
 
   boot-script:
     override-build: |
-      sed -i '2 i\
-      \
-      \# Take fdt addr from the prior stage boot loader, if available\
-      if test -n \"${fdt_addr}\"; then\
-        fdt addr ${fdt_addr}\
-        fdt move ${fdt_addr} ${fdt_addr_r}  \# implicitly sets fdt active\
-      else\
-        fdt addr ${fdt_addr_r}\
-      fi\
-      fdt get value bootargs /chosen bootargs' boot.cmd
+      if [ '__BOOT_PROCESS__' == 'U-Boot' ]; then
+        sed -i '2 i\
+        \
+        \# Take fdt addr from the prior stage boot loader, if available\
+        if test -n \"${fdt_addr}\"; then\
+          fdt addr ${fdt_addr}\
+          fdt move ${fdt_addr} ${fdt_addr_r}  \# implicitly sets fdt active\
+        else\
+          fdt addr ${fdt_addr_r}\
+        fi\
+        fdt get value bootargs /chosen bootargs' boot.cmd
 
-      mkimage -C none -A __ITS_ARCH__ -T script -d boot.cmd "${CRAFT_PART_INSTALL}"/boot.scr
+        mkimage -C none -A __ITS_ARCH__ -T script -d boot.cmd "${CRAFT_PART_INSTALL}"/boot.scr
+      fi
 
   boot-assets:
     plugin: nil
@@ -62,6 +66,10 @@ parts:
       arm_64bit=1
       uart_2ndstage=1
       EOF
+
+      if [ '__BOOT_PROCESS__' == 'UEFI' ]; then
+        echo "dtoverlay=miniuart-bt" >> "${CRAFT_PART_INSTALL}"/boot-assets/config.txt
+      fi
 
       cat << EOF > "${CRAFT_PART_INSTALL}"/boot-assets/cmdline.txt
       console=serial0,115200

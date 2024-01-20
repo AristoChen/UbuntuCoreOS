@@ -11,14 +11,19 @@ function prepare_build_env()
 	snap list yq && sudo snap refresh yq --channel=latest/stable --devmode \
 		|| sudo snap install yq --channel=latest/stable --devmode
 
-	if [ "$(dpkg --print-foreign-architectures | grep -c -E "armhf|arm64")" -ne 2 ] ; then
+	if [ "$(uname -p)" == "x86_64" ] && [ "$(dpkg --print-foreign-architectures | grep -c -E "armhf|arm64")" -ne 2 ] ; then
 		sudo cp /etc/apt/sources.list /etc/apt/sources-list-backup
 		sudo dpkg --add-architecture armhf
 		sudo dpkg --add-architecture arm64
 		sudo sed -i 's/^deb \(.*\)/deb [arch=amd64] \1/g' /etc/apt/sources.list
 	fi
+	if [ "$(uname -p)" == "aarch64" ] && [ "$(dpkg --print-foreign-architectures | grep -c -E "armhf")" -ne 1 ] ; then
+		sudo cp /etc/apt/sources.list /etc/apt/sources-list-backup
+		sudo dpkg --add-architecture armhf
+		sudo sed -i 's/^deb \(.*\)/deb [arch=arm64] \1/g' /etc/apt/sources.list
+	fi
 	sudo apt update
-	sudo apt install -y dialog
+	sudo apt install -y dialog dosfstools
 }
 
 function choose_board()
@@ -43,6 +48,35 @@ function create_build_dir()
 	[ -d "${BOARD_BUILD_DIR}/${ASSERT_DIR}" ] || cp -r "${ASSERT_DIR}" "${BOARD_BUILD_DIR}"
 }
 
+function update_gadget_yaml()
+{
+	source_yaml=$1
+	target_yaml=$2
+	partition_list=( ubuntu-seed ubuntu-boot ubuntu-save ubuntu-data )
+	for part in "${partition_list[@]}"; do
+		length=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\") | .content | length" \
+				"${source_yaml}")
+		if [ -z "$length" ]; then
+			length=0
+		fi
+		echo "Found ${length} item(s) to be appended"
+		for (( i=0; i<${length}; i++)); do
+			source=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\")" \
+					"${source_yaml}" | yq ".content[$i].source")
+			target=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\")" \
+					"${source_yaml}" | yq ".content[$i].target")
+			idx=$(($(grep "\- name:" "${target_yaml}" | grep -Fn "${part}" | cut -d ':' -f 1) - 1))
+			yq -i ".volumes.ubuntu-core.structure[${idx}].content += {\"source\": \"${source}\", \"target\": \"${target}\"}" \
+				"${target_yaml}"
+		done
+		yq -i "del(.volumes.ubuntu-core.structure[] | select(.name == \"${part}\"))" "${source_yaml}"
+	done
+
+	yq ". *+ load(\"${target_yaml}\")" "${source_yaml}" \
+		> tmp.yaml
+	mv tmp.yaml "${target_yaml}"
+}
+
 function apply_patches()
 {
 	CACHE_DIR="${ROOT_DIR}/cache/${BOARD}"
@@ -57,28 +91,7 @@ function apply_patches()
 	if [ ! -f "${CACHE_DIR}/.done_apply_patch" ]; then
 		# For gadget.yaml in gadget_snap
 		if [ -f "${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" ]; then
-			partition_list=( ubuntu-seed ubuntu-boot ubuntu-save ubuntu-data )
-			for part in "${partition_list[@]}"; do
-				length=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\") | .content | length" \
-						"${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}")
-				if [ -z "$length" ]; then
-					length=0
-				fi
-				echo "Found ${length} item(s) to be appended"
-				for (( i=0; i<${length}; i++)); do
-					source=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\")" \
-							"${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" | yq ".content[$i].source")
-					target=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\")" \
-							"${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" | yq ".content[$i].target")
-					yq -i ".volumes.ubuntu-core.structure[0].content += {\"source\": \"${source}\", \"target\": \"${target}\"}" \
-						"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
-				done
-				yq -i "del(.volumes.ubuntu-core.structure[] | select(.name == \"${part}\"))" "${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}"
-			done
-
-			yq ". *+ load(\"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}\")" "${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" \
-				> tmp.yaml
-			mv tmp.yaml "${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
+			update_gadget_yaml "${PATCH_DIR}/${GADGET_SNAP_GADGET_YAML}" "${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
 		fi
 		# For snapcraft.yaml in gadget_snap
 		if [ -f "${PATCH_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}" ]; then
@@ -98,6 +111,56 @@ function apply_patches()
 		echo "Done applying patches for YAML files"
 	else
 		echo "Skip applying patches for YAML files"
+	fi
+}
+
+function modify_for_uefi()
+{
+	CACHE_DIR="${ROOT_DIR}/cache/${BOARD}"
+	PATCH_DIR="${CACHE_DIR}/patch"
+	mkdir -p "${PATCH_DIR}"
+	cp -r "${ROOT_DIR}/configs/patch/uefi/" "${PATCH_DIR}"
+
+	if [ ! -f "${CACHE_DIR}/.done_apply_patch_uefi" ]; then
+		# For gadget.yaml in gadget snap
+		yq -i 'del(.volumes.ubuntu-core.structure[] | select(.name == "ubuntu-seed") | .[][] | select(.source == "boot.scr"))' \
+			"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
+		yq -i 'del(.volumes.ubuntu-core.structure[] | select(.name == "ubuntu-boot") | .[][] | select(.source == "boot.sel"))' \
+			"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
+		yq -i '.volumes.ubuntu-core.bootloader = "grub"' "${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
+		# UEFI will boot the ESP partition first by default
+		yq -i '.volumes.ubuntu-core.structure[] |= select(.name == "ubuntu-seed").type = "EF,C12A7328-F81F-11D2-BA4B-00A0C93EC93B"' \
+			"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
+		yq -i '.volumes.ubuntu-core.structure[] |= select(.name == "ubuntu-boot").filesystem = "ext4"' \
+			"${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
+		if [ -f "${PATCH_DIR}/uefi/${GADGET_SNAP_GADGET_YAML}" ]; then
+			update_gadget_yaml "${PATCH_DIR}/uefi/${GADGET_SNAP_GADGET_YAML}" "${CACHE_DIR}/${GADGET_SNAP_GADGET_YAML}"
+		fi
+
+		# For snapcraft.yaml in gadget snap
+		if [ -f "${PATCH_DIR}/uefi/${GADGET_SNAP_SNAPCRAFT_YAML}" ]; then
+			yq ". *+ load(\"${PATCH_DIR}/uefi/${GADGET_SNAP_SNAPCRAFT_YAML}\")" \
+				"${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}" \
+				> tmp.yaml
+			mv tmp.yaml "${CACHE_DIR}/${GADGET_SNAP_SNAPCRAFT_YAML}"
+		fi
+
+		# For snapcraft.yaml in kernel snap
+		KERNEL_CONFIG_LIST=( "CONFIG_EFI_STUB=y" "CONFIG_EFI=y" "CONFIG_DMI=y" )
+		for config in "${KERNEL_CONFIG_LIST[@]}"; do
+			yq -i ".parts.kernel.kernel-kconfigs += \"${config}\"" "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+		done
+		yq -i '.parts.kernel.stage += "kernel.efi"' "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+		yq -i '.parts.kernel.kernel-build-efi-image = true' "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+		yq -i 'del(.parts.fit-image)' "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+		yq -i 'del(.parts.kernel.prime)' "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+		yq -i 'del(.parts.kernel.stage[] | select(. == "Image"))' "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+		yq -i 'del(.parts.kernel.stage[] | select(. == "initrd.img"))' "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+
+		touch "${CACHE_DIR}/.done_apply_patch_uefi"
+		echo "Done modifying YAML files for boot with UEFI"
+	else
+		echo "Skip modifying YAML files for boot with UEFI"
 	fi
 }
 
@@ -139,19 +202,48 @@ function load_config()
 		apply_patches
 	fi
 
+	if [ -z "${BOOT_PROCESS}" ]; then
+		BOOT_PROCESS="U-Boot"
+		if [ "${UEFI_SUPPORT}" == "true" ]; then
+			options=()
+			options+=("U-Boot" "U-Boot -> kernel")
+			options+=("UEFI" "U-Boot -> shim -> GRUB -> kernel")
+
+			TTY_X=$(($(stty size | awk '{print $2}') - 6)) # determine terminal width
+			TTY_Y=$(($(stty size | awk '{print $1}') - 6)) # determine terminal height
+			BOOT_PROCESS=$(DIALOGRC= dialog --stdout --title "Choose a boot process" --scrollbar --colors \
+				--menu "Select the target boot process.\n" ${TTY_Y} ${TTY_X} $((TTY_Y - 8)) "${options[@]}")
+		fi
+	fi
+
+	if [ "${BOOT_PROCESS}" == "UEFI" ]; then
+		if [ "${UEFI_SUPPORT}" != "true" ]; then
+			echo "UEFI is not supported for ${BOARD} yet"
+			exit 1
+		fi
+		if [ "${ARCH}" == "arm64" ] && [ "$(uname -p)" != "aarch64" ]; then
+			echo "Currently we can not cross-build kernel.efi if using UEFI bootl process"
+			exit
+		fi
+		modify_for_uefi
+	fi
+
 	cd "${BOARD_BUILD_DIR}"
 
 	if [ "${SCP_IS_REQUIRED}" != "true" ]; then
 		# Delete the scp related code in snapcraft.yaml
 		cross_compiler="__SCP_CROSS_COMPILE_DEB_PACKAGE__" yq -i \
-			'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' "${GADGET_SNAP_SNAPCRAFT_YAML}"
+			'del(.["build-packages"][] | select(has("on amd64")) | .[][] | select(. == strenv(cross_compiler)))' \
+			"${GADGET_SNAP_SNAPCRAFT_YAML}"
+		yq -i 'del(.["build-packages"][] | select(has("on arm64")))' "${GADGET_SNAP_SNAPCRAFT_YAML}"
 	fi
 
 	if [ "${CLOUD_INIT_ENABLED}" != "true" ]; then
 		# Delete the cloud-init related code in snapcraft.yaml
 		yq -i 'del(.parts.cloud-init-conf)' "${GADGET_SNAP_SNAPCRAFT_YAML}"
 		yq -i 'del(.defaults)' "${GADGET_SNAP_GADGET_YAML}"
-		yq -i 'del(.volumes.ubuntu-core.structure[] | select(.name == "ubuntu-seed") | .[][] | select(.source == "cloud.conf"))' "${GADGET_SNAP_GADGET_YAML}"
+		yq -i 'del(.volumes.ubuntu-core.structure[] | select(.name == "ubuntu-seed") | .[][] | select(.source == "cloud.conf"))' \
+			"${GADGET_SNAP_GADGET_YAML}"
 	fi
 
 	local d=$'\x03'
@@ -178,6 +270,7 @@ function load_config()
 		-exec sed -i "s${d}__BOOTLOADER_BINARY__${d}${BOOTLOADER_BINARY}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_BINARY_RENAME__${d}${BOOTLOADER_BINARY_RENAME}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_BOOTARGS__${d}${BOOTLOADER_BOOTARGS}${d}g" {} \; \
+		-exec sed -i "s${d}__BOOT_PROCESS__${d}${BOOT_PROCESS}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__MMC_DEV_NUM__${d}${MMC_DEV_NUM}${d}g" {} \; \
 		-exec sed -i "s${d}__KERNEL_LOAD_ADDR__${d}${KERNEL_LOAD_ADDR}${d}g" {} \; \
@@ -221,7 +314,7 @@ function build_ubuntu_core_image()
 		--snap="${gadget_snap}" --snap="${kernel_snap}" "${ARG_EXTRA_SNAPS}" --debug
 	cd out/
 
-	local output_image_name="${DEVICE}_Ubuntu_Core_22_${ARCH}.img"
+	local output_image_name="${DEVICE}_Ubuntu_Core_22_${BOOT_PROCESS}_${ARCH}.img"
 	mv ubuntu-core.img "${output_image_name}"
 	xz -T0 -z "${output_image_name}"
 
@@ -237,6 +330,9 @@ while [ -n "$1" ]; do
 		;;
 		--board=*)
 			BOARD="${1#*=}"
+		;;
+		--boot-process=*)
+			BOOT_PROCESS="${1#*=}"
 		;;
 		* )
 			echo "ERROR: unknown option ${1}"
