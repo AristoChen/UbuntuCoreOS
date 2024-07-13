@@ -1,11 +1,11 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 function prepare_build_env()
 {
-	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/edge --classic \
-		|| sudo snap install snapcraft --channel=latest/edge --classic
+	snap list snapcraft && sudo snap refresh snapcraft --channel=latest/stable --classic \
+		|| sudo snap install snapcraft --channel=latest/stable --classic
 	snap list ubuntu-image && sudo snap refresh ubuntu-image --channel=latest/stable --classic \
 		|| sudo snap install ubuntu-image --channel=latest/stable --classic
 	snap list yq && sudo snap refresh yq --channel=latest/stable --devmode \
@@ -316,6 +316,7 @@ function build_ubuntu_core_image()
 
 	local output_image_name="${DEVICE}_Ubuntu_Core_22_${BOOT_PROCESS}_${ARCH}.img"
 	mv ubuntu-core.img "${output_image_name}"
+	echo "Compressing image file..."
 	xz -T0 -z "${output_image_name}"
 
 	[ -d "${OUTPUT_DIR}" ] || mkdir -p "${OUTPUT_DIR}"
@@ -333,6 +334,9 @@ while [ -n "$1" ]; do
 		;;
 		--boot-process=*)
 			BOOT_PROCESS="${1#*=}"
+		;;
+		--debug)
+			set -x
 		;;
 		* )
 			echo "ERROR: unknown option ${1}"

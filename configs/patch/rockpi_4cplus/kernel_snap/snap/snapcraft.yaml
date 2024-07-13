@@ -1,0 +1,14 @@
+assumes: [kernel-assets]
+
+parts:
+  firmware-custom:
+    after:
+      - kernel
+    plugin: nil
+    source: https://github.com/RPi-Distro/firmware-nonfree.git
+    source-type: git
+    source-depth: 1
+    override-prime: |
+      mkdir -p "${CRAFT_PRIME}"/firmware/brcm/
+      cp -ar "${CRAFT_PART_BUILD}"/debian/config/brcm80211/* "${CRAFT_PRIME}"/firmware/
+      cp -ar "${CRAFT_STAGE}"/firmware/cypress/cyfmac43455-sdio.bin "${CRAFT_PRIME}"/firmware/cypress/

@@ -1,0 +1,34 @@
+parts:
+  rkbin:
+    plugin: dump
+    source: https://github.com/rockchip-linux/rkbin.git
+    source-type: git
+    source-depth: 1
+    organize:
+      "*": rkbin
+    prime:
+      - -*
+
+  u-boot:
+    after:
+      - rkbin
+    override-build: |
+      cat << EOF >> configs/__BOOTLOADER_DEFCONFIG__
+      CONFIG_FIT=y
+      CONFIG_LOCALVERSION_AUTO=n
+      EOF
+      make __BOOTLOADER_DEFCONFIG__
+
+      make BL31=$(find "${CRAFT_STAGE}"/rkbin -name "rk3399_bl31*.elf") all \
+        -j$(nproc) LOCALVERSION="-uc22"
+      RK3399_BIN=$(find "${CRAFT_STAGE}"/rkbin/bin/rk33/ -name "rk3399_ddr_933MHz_v*.bin")
+      tools/mkimage -n rk3399 -T rksd -d "${RK3399_BIN}":spl/u-boot-spl.bin idbloader.img
+      cp idbloader.img "${CRAFT_PART_INSTALL}"/bootloader.bin
+      cp u-boot.itb "${CRAFT_PART_INSTALL}"/
+
+      # Copy licenses
+      mkdir -p "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
+      cp -a Licenses/* "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
+
+      mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
+      touch "${CRAFT_PART_INSTALL}"/uboot.conf
