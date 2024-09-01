@@ -1,0 +1,15 @@
+volumes:
+  ubuntu-core:
+    structure:
+      - name: bootloader
+        offset: 32768
+        size: 4M
+        type: bare
+        content:
+          - image: bootloader.bin
+      - name: fip
+        offset: 8388608
+        size: 4M
+        type: bare
+        content:
+          - image: u-boot.itb

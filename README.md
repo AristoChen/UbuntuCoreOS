@@ -21,6 +21,7 @@ Please see official [Ubuntu Core documentation](https://ubuntu.com/core/docs) fo
 | OrangePi Zero        | armhf |      |
 | RaspberryPi 32bit    | armhf | Tested with 3b, 3b+, 4b |
 | RaspberryPi 64bit    | arm64 | Tested with 3b, 3b+, 4b, 5, zero 2w |
+| RockPi 4C Plus       | arm64 |      |
 | StarFive VisionFive2 | riscv |      |
 
 ## How to use

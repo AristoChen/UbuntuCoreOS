@@ -85,6 +85,7 @@ build-packages:
   - build-essential
   - device-tree-compiler
   - flex
+  - libgnutls28-dev
   - libssl-dev
   - python2
   - python3-dev
@@ -93,6 +94,7 @@ build-packages:
   - python3-setuptools
   - swig
   - u-boot-tools
+  - uuid-dev
   - on amd64:
     - __CROSS_COMPILE_DEB_PACKAGE__
     - __SCP_CROSS_COMPILE_DEB_PACKAGE__
