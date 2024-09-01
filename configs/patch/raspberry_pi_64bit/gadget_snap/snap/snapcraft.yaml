@@ -65,6 +65,10 @@ parts:
       enable_uart=1
       arm_64bit=1
       uart_2ndstage=1
+
+      # For using GPIO 14,15 as console output on Pi 5
+      #dtparam=uart0           # Enable UART0/ttyAMA0 on GPIO 14 & 15
+      #dtparam=uart0_console   # Enable UART0/ttyAMA0 on GPIO 14 & 15 and make it the console UART
       EOF
 
       if [ '__BOOT_PROCESS__' == 'UEFI' ]; then
