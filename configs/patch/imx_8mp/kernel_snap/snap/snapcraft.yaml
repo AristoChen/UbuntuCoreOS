@@ -1,0 +1,8 @@
+parts:
+  firmware-custom:
+    after:
+      - kernel
+    plugin: nil
+    override-prime: |
+      mkdir -p "${CRAFT_PRIME}"/firmware/mrvl/
+      cp -ar "${CRAFT_STAGE}"/firmware/mrvl/pcieuart8997_combo_v4.bin "${CRAFT_PRIME}"/firmware/mrvl/

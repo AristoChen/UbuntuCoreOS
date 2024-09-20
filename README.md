@@ -11,18 +11,22 @@ From Linux and maker space tinkerers, to the robotics, automotive and signage in
 Please see official [Ubuntu Core documentation](https://ubuntu.com/core/docs) for more infomation
 
 ## Supported devices
-| SBC                  | ARCH  | NOTE |
-|----------------------|-------|------|
-| Khadas VIM1          | arm64 |      |
-| OrangePi 3           | arm64 |      |
-| OrangePi 5           | arm64 |      |
-| OrangePi PC          | armhf |      |
-| OrangePi PC2         | arm64 |      |
-| OrangePi Zero        | armhf |      |
-| RaspberryPi 32bit    | armhf | Tested with 3b, 3b+, 4b |
-| RaspberryPi 64bit    | arm64 | Tested with 3b, 3b+, 4b, 5, zero 2w |
-| RockPi 4C Plus       | arm64 |      |
-| StarFive VisionFive2 | riscv |      |
+| SBC                       | ARCH  | NOTE |
+|---------------------------|-------|------|
+| Khadas VIM1               | arm64 |      |
+| NXP i.MX6Q                | armhf |      |
+| NXP i.MX6ULL              | armhf |      |
+| NXP i.MX8MP               | arm64 |      |
+| NXP Layerscape ls1028ardb | arm64 |      |
+| OrangePi 3                | arm64 |      |
+| OrangePi 5                | arm64 |      |
+| OrangePi PC               | armhf |      |
+| OrangePi PC2              | arm64 |      |
+| OrangePi Zero             | armhf |      |
+| RaspberryPi 32bit         | armhf | Tested with 3b, 3b+, 4b |
+| RaspberryPi 64bit         | arm64 | Tested with 3b, 3b+, 4b, 5, zero 2w |
+| RockPi 4C Plus            | arm64 |      |
+| StarFive VisionFive2      | riscv |      |
 
 ## How to use
 **Note**: The code is only tested in Ubuntu Jammy environment, other environment are currently not tested.
@@ -35,7 +39,7 @@ $ ./build.sh
 # --snap=<SNAP_NAME>=<SNAP_TRACK>/<SNAP_CHANNEL>
 $ ./build.sh --snap=network-manager=latest/stable --snap=modem-manager=latest/candidate
 ```
-Step 2: Choose a board in the list
+Step 2: Choose a board in the list. Some platform may be able to support booting with UEFI, you may choose it if you prefer.
 
 Step 3: flash it to SD card
 ```

@@ -23,7 +23,7 @@ parts:
       patch -p1 < *.patch
       make BL31=$(find "${CRAFT_STAGE}"/rkbin -name "rk3588_bl31*.elf") spl/u-boot-spl.bin u-boot.dtb u-boot.itb \
         -j$(nproc) LOCALVERSION="-uc22"
-      RK3588_BIN=$(find "${CRAFT_STAGE}"/rkbin/bin/rk35/ -name "rk3588_ddr_lp4_2112MHz_lp5_2736MHz_v*.bin")
+      RK3588_BIN=$(find "${CRAFT_STAGE}"/rkbin/bin/rk35/ -name "rk3588_ddr_lp4_2112MHz_lp5_2400MHz_v*.bin")
       tools/mkimage -n rk3588 -T rksd -d "${RK3588_BIN}":spl/u-boot-spl.bin idbloader.img
       cp idbloader.img "${CRAFT_PART_INSTALL}"/bootloader.bin
       cp u-boot.itb "${CRAFT_PART_INSTALL}"/

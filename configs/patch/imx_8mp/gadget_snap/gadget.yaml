@@ -1,0 +1,9 @@
+volumes:
+  ubuntu-core:
+    structure:
+      - name: bootloader
+        offset: 32768
+        size: 32M
+        type: bare
+        content:
+          - image: bootloader.bin

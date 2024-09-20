@@ -7,6 +7,8 @@ volumes:
             target: EFI/boot/grubaa64.efi
           - source: shim.efi.signed
             target: EFI/boot/bootaa64.efi
+          - source: $kernel:dtbs/dtbs/
+            target: /
       - name: ubuntu-boot
         content:
           - source: grubaa64.efi

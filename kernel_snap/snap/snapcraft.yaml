@@ -123,6 +123,10 @@ parts:
     override-build: |
       cp "${CRAFT_PROJECT_DIR}"/its/kernel.its ./
       ITS_FDT_PATH=$(find "${CRAFT_STAGE}" -name "__ITS_FDT_NAME__" | sed 's/.*stage\/\(.*dtb\)/\1/')
+      if [ -z "${ITS_FDT_PATH}" ];then
+        echo "Failed to find dtb file called ${ITS_FDT_PATH}"
+        exit 1
+      fi
 
       d=$'\x03'
       sed -i "s${d}__ITS_FDT_PATH__${d}${ITS_FDT_PATH}${d}g" kernel.its

@@ -1,0 +1,30 @@
+parts:
+  u-boot:
+    override-build: |
+      cat << EOF >> configs/__BOOTLOADER_DEFCONFIG__
+      CONFIG_FIT=y
+      CONFIG_LOCALVERSION_AUTO=n
+      CONFIG_CMD_IMPORTENV=y
+      CONFIG_CMD_EXPORTENV=y
+      CONFIG_SYS_DCACHE_OFF=y
+      EOF
+      make __BOOTLOADER_DEFCONFIG__
+
+      make -j$(nproc) LOCALVERSION="-uc22"
+
+      # Copy licenses
+      mkdir -p "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
+      cp -a Licenses/* "${CRAFT_PART_INSTALL}"/usr/share/doc/u-boot
+
+      if [ '__BOOTLOADER_BINARY_RENAME__' == 'false' ]; then
+        cp __BOOTLOADER_BINARY__ "${CRAFT_PART_INSTALL}"/
+      else
+        cp __BOOTLOADER_BINARY__ "${CRAFT_PART_INSTALL}"/bootloader.bin
+      fi
+
+      if [ '__BOOT_PROCESS__' == 'U-Boot' ]; then
+        mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
+        touch "${CRAFT_PART_INSTALL}"/uboot.conf
+      fi
+    prime:
+      - -__BOOTLOADER_BINARY__

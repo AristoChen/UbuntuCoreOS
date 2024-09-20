@@ -59,7 +59,7 @@ function update_gadget_yaml()
 		if [ -z "$length" ]; then
 			length=0
 		fi
-		echo "Found ${length} item(s) to be appended"
+		echo "Found ${length} item(s) to be appended in ${part} partition"
 		for (( i=0; i<${length}; i++)); do
 			source=$(yq ".volumes.ubuntu-core.structure[] | select(.name == \"${part}\")" \
 					"${source_yaml}" | yq ".content[$i].source")
@@ -157,6 +157,25 @@ function modify_for_uefi()
 		yq -i 'del(.parts.kernel.stage[] | select(. == "Image"))' "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
 		yq -i 'del(.parts.kernel.stage[] | select(. == "initrd.img"))' "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
 
+		if [[ "${BOARD}" != "raspberry"* ]]; then
+			cat <<- EOF >> remove_unrelated_dtbs.sh
+			find dtbs/ -name \"__ITS_FDT_NAME__\" -exec mv {} dtbs/ \;
+			find dtbs/ -type f ! -name \"__ITS_FDT_NAME__\" -delete
+			find dtbs/ -type d -empty -delete
+			EOF
+
+			yq -i ".parts.kernel.override-prime += \"$(cat remove_unrelated_dtbs.sh)\"" \
+				"${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+			rm -f remove_unrelated_dtbs.sh
+
+			if [ -f "${PATCH_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}" ]; then
+				yq ". *+ load(\"${PATCH_DIR}/uefi/${KERNEL_SNAP_SNAPCRAFT_YAML}\")" \
+					"${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}" \
+					> tmp.yaml
+				mv tmp.yaml "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+			fi
+		fi
+
 		touch "${CACHE_DIR}/.done_apply_patch_uefi"
 		echo "Done modifying YAML files for boot with UEFI"
 	else
@@ -222,10 +241,14 @@ function load_config()
 			exit 1
 		fi
 		if [ "${ARCH}" == "arm64" ] && [ "$(uname -p)" != "aarch64" ]; then
-			echo "Currently we can not cross-build kernel.efi if using UEFI bootl process"
-			exit
+			echo "Currently we can not cross-build kernel.efi if using UEFI boot process"
+			exit 1
 		fi
 		modify_for_uefi
+	else
+		if [[ "${BOARD}" != "raspberry"* ]]; then
+			yq -i '.parts.kernel.prime += "-dtbs"' "${CACHE_DIR}/${KERNEL_SNAP_SNAPCRAFT_YAML}"
+		fi
 	fi
 
 	cd "${BOARD_BUILD_DIR}"
@@ -250,6 +273,9 @@ function load_config()
 	if [ -n "${BOOTLOADER_BOOTCMD}" ]; then
 		sed -i "s${d}bootm \${fitloadaddr}\$${d}$BOOTLOADER_BOOTCMD${d}g" "${GADGET_SNAP_DIR}/boot-script/boot.cmd"
 	fi
+	if [ -n "${BOOTSCRIPT_NAME}" ]; then
+		sed -i "s/boot.scr/${BOOTSCRIPT_NAME}/g" "${GADGET_SNAP_GADGET_YAML}"
+	fi
 	find . \( -path '*/parts' -prune -o -path '*/stage' -prune -o -path '*/prime' -prune \
 		-o -path './work' -prune -o -path './out' -prune -o -path './*.snap' -prune \) \
 		-o -print -type f \
@@ -262,6 +288,8 @@ function load_config()
 		-exec sed -i "s${d}__SCP_IS_REQUIRED__${d}${SCP_IS_REQUIRED}${d}g" {} \; \
 		-exec sed -i "s${d}__SCP_CROSS_COMPILE__${d}${SCP_CROSS_COMPILE}${d}g" {} \; \
 		-exec sed -i "s${d}__SCP_CROSS_COMPILE_DEB_PACKAGE__${d}${SCP_CROSS_COMPILE_DEB_PACKAGE}${d}g" {} \; \
+		\
+		-exec sed -i "s${d}__BSP_GIT_BRANCH__${d}${BSP_GIT_BRANCH}${d}g" {} \; \
 		\
 		-exec sed -i "s${d}__PARTITION_SCHEMA__${d}${PARTITION_SCHEMA}${d}g" {} \; \
 		-exec sed -i "s${d}__BOOTLOADER_GIT_SOURCE__${d}${BOOTLOADER_GIT_SOURCE}${d}g" {} \; \

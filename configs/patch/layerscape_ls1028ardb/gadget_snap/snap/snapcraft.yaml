@@ -1,0 +1,128 @@
+parts:
+  u-boot:
+    override-build: |
+      cat << EOF >> configs/__BOOTLOADER_DEFCONFIG__
+      CONFIG_FIT=y
+      CONFIG_LOCALVERSION_AUTO=n
+      CONFIG_CMD_IMPORTENV=y
+      CONFIG_CMD_EXPORTENV=y
+      CONFIG_FSL_ESDHC_SUPPORT_ADMA2=y
+      EOF
+
+      sed -i "s/root=\/dev\/ram0 //" configs/__BOOTLOADER_DEFCONFIG__
+
+      make __BOOTLOADER_DEFCONFIG__
+      make -j$(nproc)
+
+      cp u-boot.bin "${CRAFT_PART_INSTALL}"
+
+      # Copy licenses
+      mkdir -p "${CRAFT_PART_INSTALL}/usr/share/doc/u-boot"
+      cp -a Licenses/* "${CRAFT_PART_INSTALL}/usr/share/doc/u-boot"
+
+      if [ '__BOOT_PROCESS__' == 'U-Boot' ]; then
+        mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
+        touch "${CRAFT_PART_INSTALL}"/uboot.conf
+      fi
+    prime:
+      - -u-boot.bin
+
+  optee-os:
+    plugin: nil
+    source: https://github.com/nxp-qoriq/optee_os.git
+    source-type: git
+    source-branch: __BSP_GIT_BRANCH__
+    source-depth: 1
+    build-environment:
+      - ARCH: "arm"
+      - CFG_USER_TA_TARGETS: "ta_arm64"
+      - CFG_ARM64_core: y
+      - DEBUG: 0
+      - CFG_TEE_CORE_LOG_LEVEL: 1
+      - CFG_TEE_TA_LOG_LEVEL: 1
+      - CFG_TEE_BENCHMARK: n
+      - PLATFORM: "ls-ls1028ardb"
+      - on amd64:
+          - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+          - CROSS_COMPILE_core: "${CRAFT_ARCH_TRIPLET}-"
+          - CROSS_COMPILE_ta_arm64: "${CRAFT_ARCH_TRIPLET}-"
+    override-build: |
+      make O="${CRAFT_PART_BUILD}/out" -j$(nproc)
+      "${CRAFT_ARCH_TRIPLET}-objcopy" \
+        -O binary \
+        "${CRAFT_PART_BUILD}/out/core/tee.elf" \
+        "${CRAFT_PART_INSTALL}/tee.bin"
+
+      # Copy licenses
+      mkdir -p "${CRAFT_PART_INSTALL}/usr/share/doc/optee-os"
+      cp LICENSE "${CRAFT_PART_INSTALL}/usr/share/doc/optee-os"
+    prime:
+      - -tee*
+
+  rcw:
+    plugin: nil
+    source: https://github.com/nxp-qoriq/rcw.git
+    source-type: git
+    source-branch: __BSP_GIT_BRANCH__
+    source-depth: 1
+    build-environment:
+      - on amd64:
+          - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+    override-build: |
+      make BOARDS=ls1028ardb
+      cp ls1028ardb/R_SQPP_0x85bb/rcw_1500_gpu600.bin "${CRAFT_PART_INSTALL}"
+
+      # Copy licenses
+      mkdir -p "${CRAFT_PART_INSTALL}/usr/share/doc/rcw"
+      cp LICENSE "${CRAFT_PART_INSTALL}/usr/share/doc/rcw"
+    prime:
+      - -rcw_1500_gpu600.bin
+
+  dp-fw:
+    plugin: nil
+    override-pull: |
+      wget https://www.nxp.com/lgfiles/sdk/lsdk2108/firmware-cadence-lsdk2108.bin \
+        -O firmware-ls1028ardb.bin
+    override-build: |
+      chmod +x firmware-ls1028ardb.bin
+      ./firmware-ls1028ardb.bin --force --auto-accept
+      cp firmware-cadence-*/dp/ls1028a-dp-fw.bin "${CRAFT_PART_INSTALL}"
+    prime:
+      - -*
+
+  arm-trusted-firmware:
+    after:
+      - rcw
+      - u-boot
+      - optee-os
+      - dp-fw
+    plugin: nil
+    source: https://github.com/nxp-qoriq/atf.git
+    source-type: git
+    source-depth: 1
+    source-branch: __BSP_GIT_BRANCH__
+    build-environment:
+      - on amd64:
+          - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+    override-build: |
+      BOOT_MODE=sd # use "emmc" if it's for booting from eMMC
+      make -s -j$(nproc) fip pbl bl31 PLAT=ls1028ardb BOOT_MODE="${BOOT_MODE}" \
+        RCW="${CRAFT_STAGE}/rcw_1500_gpu600.bin" \
+        BL33="${CRAFT_STAGE}/u-boot.bin" \
+        BL32="${CRAFT_STAGE}/tee.bin" \
+        SPD=opteed \
+        DEBUG=0 \
+        LOG_LEVEL=0
+
+      OUTPUT=release # another value is "debug"
+      dd if="build/ls1028ardb/${OUTPUT}/bl2_${BOOT_MODE}.pbl" of=bootloader.bin bs=1K seek=0
+      dd if="build/ls1028ardb/${OUTPUT}/fip.bin"              of=bootloader.bin bs=1k seek=1020
+      dd if="${CRAFT_STAGE}/ls1028a-dp-fw.bin"                of=bootloader.bin bs=1k seek=9468
+
+      cp bootloader.bin "${CRAFT_PART_INSTALL}"
+
+  boot-script:
+    override-build: |
+      if [ '__BOOT_PROCESS__' == 'U-Boot' ]; then
+        mkimage -C none -A __ITS_ARCH__ -T script -d boot.cmd "${CRAFT_PART_INSTALL}"/ls1028ardb_boot.scr
+      fi

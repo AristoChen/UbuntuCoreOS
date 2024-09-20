@@ -1,0 +1,167 @@
+parts:
+  u-boot:
+    override-build: |
+      cat << EOF >> configs/__BOOTLOADER_DEFCONFIG__
+      CONFIG_FIT=y
+      CONFIG_LOCALVERSION_AUTO=n
+      CONFIG_CMD_IMPORTENV=y
+      CONFIG_CMD_EXPORTENV=y
+      CONFIG_SYS_BOOTM_LEN=0x8000000
+      EOF
+
+      # Tianocore EDK II's standalone management mode driver needs to be enabled
+      # for this, so temporarily disable first, other wise it will show the
+      # following error: Cannot initialize UEFI sub-system, r = 3
+      sed -i '/CONFIG_EFI_MM_COMM_TEE=y/d' configs/__BOOTLOADER_DEFCONFIG__
+
+      make __BOOTLOADER_DEFCONFIG__
+      make -j$(nproc)
+
+      cp u-boot.bin "${CRAFT_PART_INSTALL}"
+      cp spl/u-boot-spl.bin "${CRAFT_PART_INSTALL}/u-boot-spl.bin"
+      mkdir -p "${CRAFT_PART_INSTALL}/imx-boot-tools"
+      cp u-boot-nodtb.bin "${CRAFT_PART_INSTALL}/imx-boot-tools"
+      cp u-boot.dtb \
+        "${CRAFT_PART_INSTALL}/imx-boot-tools/evk.dtb"
+
+      # copy tools/mkimage tool for imx-boot stage
+      cp tools/mkimage "${CRAFT_PART_INSTALL}"
+      # Copy licenses
+      mkdir -p "${CRAFT_PART_INSTALL}/usr/share/doc/u-boot"
+      cp -a Licenses/* "${CRAFT_PART_INSTALL}/usr/share/doc/u-boot"
+
+      if [ '__BOOT_PROCESS__' == 'U-Boot' ]; then
+        mkenvimage -s 4096 -o "${CRAFT_PART_INSTALL}"/boot.sel - < /dev/null
+        touch "${CRAFT_PART_INSTALL}"/uboot.conf
+      fi
+    prime:
+      - -u-boot.bin
+      - -u-boot-spl.bin
+      - -imx-boot-tools
+      - -mkimage
+
+  optee-os:
+    plugin: nil
+    source: https://github.com/nxp-imx/imx-optee-os.git
+    source-type: git
+    source-branch: __BSP_GIT_BRANCH__
+    source-depth: 1
+    build-environment:
+      - ARCH: "arm"
+      - CFG_USER_TA_TARGETS: "ta_arm64"
+      - CFG_ARM64_core: y
+      - DEBUG: 0
+      - CFG_TEE_CORE_LOG_LEVEL: 1
+      - CFG_TEE_TA_LOG_LEVEL: 1
+      - CFG_TEE_BENCHMARK: n
+      - CFG_CORE_HEAP_SIZE: 262144
+      - CFG_CORE_HUK_SUBKEY_COMPAT_USE_OTP_DIE_ID: n
+      - PLATFORM: "imx"
+      - PLATFORM_FLAVOR: "mx8mpevk"
+      - on amd64:
+          - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+          - CROSS_COMPILE_core: "${CRAFT_ARCH_TRIPLET}-"
+          - CROSS_COMPILE_ta_arm64: "${CRAFT_ARCH_TRIPLET}-"
+    override-build: |
+      make O="${CRAFT_PART_BUILD}/out" -j$(nproc)
+      "${CRAFT_ARCH_TRIPLET}-objcopy" \
+        -O binary \
+        "${CRAFT_PART_BUILD}/out/core/tee.elf" \
+        "${CRAFT_PART_INSTALL}/tee.bin"
+
+      # Copy licenses
+      mkdir -p "${CRAFT_PART_INSTALL}/usr/share/doc/optee-os"
+      cp LICENSE "${CRAFT_PART_INSTALL}/usr/share/doc/optee-os"
+    prime:
+      - -tee*
+
+  imx-firmware:
+    plugin: nil
+    override-pull: |
+      # latest firmware version can be found in
+      # https://github.com/nxp-imx/meta-imx/ -b <relevant release> in SCR-<release version>.txt
+      firmware_repo="https://github.com/nxp-imx/meta-imx/"
+      firmware_branch=$(git ls-remote "${firmware_repo}" |\
+        grep "$(echo __BSP_GIT_BRANCH__ | cut -c 4-)" | sed -n 's/.*heads\/\(.*\)/\1/p')
+      git clone "${firmware_repo}" -b "${firmware_branch}" --depth 1
+      SCR_file=$(find meta-imx -name "SCR*.txt")
+      firmware_version=$(grep -r "firmware-imx.*.bin" -A1 "${SCR_file}" | sed -n 's/Version: *\(.*\)/\1/p')
+      wget "https://www.nxp.com/lgfiles/NMG/MAD/YOCTO/firmware-imx-${firmware_version}.bin" \
+        -O firmware-imx.bin
+    override-build: |
+      chmod +x firmware-imx.bin
+      ./firmware-imx.bin --force --auto-accept
+      cp -r firmware-imx-*/firmware "${CRAFT_PART_INSTALL}"
+    prime:
+      - -*
+
+  arm-trusted-firmware:
+    plugin: nil
+    source: https://github.com/nxp-imx/imx-atf.git
+    source-type: git
+    source-depth: 1
+    source-branch: __BSP_GIT_BRANCH__
+    build-environment:
+      - on amd64:
+          - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+    override-build: |
+      platform="imx8mp"
+      make \
+        PLAT="${platform}" \
+        BUILD_BASE="${CRAFT_PART_BUILD}/build" \
+        bl31 \
+        -j$(nproc)
+      make \
+        PLAT="${platform}" \
+        BUILD_BASE="${CRAFT_PART_BUILD}/build-optee" \
+        SPD=opteed \
+        bl31 \
+        -j$(nproc)
+      cp "${CRAFT_PART_BUILD}/build/${platform}/release/bl31.bin" \
+         "${CRAFT_PART_INSTALL}/bl31-${platform}.bin"
+      cp "${CRAFT_PART_BUILD}/build-optee/${platform}/release/bl31.bin" \
+         "${CRAFT_PART_INSTALL}/bl31-${platform}.bin-optee"
+    prime:
+      - -bl31*
+
+  imx-boot:
+    after:
+      - arm-trusted-firmware
+      - imx-firmware
+      - u-boot
+      - optee-os
+    plugin: nil
+    source: https://github.com/nxp-imx/imx-mkimage.git
+    source-type: git
+    source-branch: __BSP_GIT_BRANCH__
+    source-depth: 1
+    override-build: |
+      platform="imx8mp"
+      # firmware files
+      ddr_firmware_list=()
+      ddr_firmware_list+=('lpddr4_pmu_train_1d_imem_202006.bin')
+      ddr_firmware_list+=('lpddr4_pmu_train_1d_dmem_202006.bin')
+      ddr_firmware_list+=('lpddr4_pmu_train_2d_imem_202006.bin')
+      ddr_firmware_list+=('lpddr4_pmu_train_2d_dmem_202006.bin')
+      for ddr_firmware in "${ddr_firmware_list[@]}" ; do
+        cp "${CRAFT_STAGE}/firmware/ddr/synopsys/${ddr_firmware}" iMX8M
+      done
+      cp "${CRAFT_STAGE}/firmware/hdmi/cadence/signed_dp_imx8m.bin" iMX8M
+      cp "${CRAFT_STAGE}/firmware/hdmi/cadence/signed_hdmi_imx8m.bin" iMX8M
+      # atf
+      cp "${CRAFT_STAGE}/bl31-${platform}.bin-optee" iMX8M/bl31.bin
+      cp "${CRAFT_STAGE}/tee.bin" iMX8M/tee.bin
+      # u-boot
+      cp "${CRAFT_STAGE}/u-boot.bin" iMX8M
+      cp "${CRAFT_STAGE}/u-boot-spl.bin" iMX8M
+      cp "${CRAFT_STAGE}/imx-boot-tools/u-boot-nodtb.bin" iMX8M
+      cp "${CRAFT_STAGE}/imx-boot-tools/evk.dtb" iMX8M/imx8mp-evk.dtb
+      # setup link to mkimage_uboot
+      ln -sf "${CRAFT_STAGE}/mkimage" iMX8M/mkimage_uboot
+      make SOC=iMX8MP flash_evk print_fit_hab
+      mkdir -p "${CRAFT_PART_INSTALL}/boot_firmware"
+      cp iMX8M/flash.bin "${CRAFT_PART_INSTALL}/bootloader.bin"
+
+build-packages:
+  - zlib1g-dev
+
