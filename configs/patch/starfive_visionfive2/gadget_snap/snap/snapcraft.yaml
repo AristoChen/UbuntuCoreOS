@@ -52,11 +52,11 @@ parts:
     source-branch: master
     build-environment:
       - on amd64:
-        - CROSS_COMPILE: riscv64-linux-gnu-
-        - CFLAGS: "-mabi=lp64d -march=rv64imafdc_zicsr_zifencei_zba_zbb"
+          - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+          - CFLAGS: "-mabi=lp64d -march=rv64imafdc_zicsr_zifencei_zba_zbb"
       - on arm64:
-        - CROSS_COMPILE: riscv64-linux-gnu-
-        - CFLAGS: "-mabi=lp64d -march=rv64imafdc_zicsr_zifencei_zba_zbb"
+          - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+          - CFLAGS: "-mabi=lp64d -march=rv64imafdc_zicsr_zifencei_zba_zbb"
     override-build: |
       mkdir output
       make PLATFORM=generic FW_PAYLOAD_PATH="${CRAFT_STAGE}"/u-boot.bin \

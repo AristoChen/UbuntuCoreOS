@@ -27,7 +27,6 @@ parts:
 
       cp "${CRAFT_STAGE}"/Image ./
       cp "${CRAFT_STAGE}"/initrd.img ./
-      cp -r "${CRAFT_STAGE}"/dtbs ./
 
       mkimage -f kernel.its "${CRAFT_PART_INSTALL}"/kernel.img
 

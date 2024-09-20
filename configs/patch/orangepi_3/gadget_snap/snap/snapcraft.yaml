@@ -7,7 +7,7 @@ parts:
     source-branch: master
     build-environment:
       - on amd64:
-          - CROSS_COMPILE: aarch64-linux-gnu-
+          - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
     override-build: |
       make PLAT=sun50i_h6 DEBUG=1 bl31
       cp build/sun50i_h6/debug/bl31.bin "${CRAFT_PART_INSTALL}"/

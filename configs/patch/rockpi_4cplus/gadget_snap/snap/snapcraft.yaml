@@ -5,7 +5,7 @@ parts:
     source-type: git
     source-depth: 1
     organize:
-      "*": rkbin
+      "*": rkbin/
     prime:
       - -*
 
